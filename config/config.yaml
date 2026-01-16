@@ -1,0 +1,42 @@
+server:
+  port: 8080
+  mode: release  # debug, release
+  host: 0.0.0.0
+
+jwt:
+  secret: good_job
+  cookie_name: "test_token"  # 自动根据 ENV 环境变量设置: production=token, test=test_token
+
+mysql:
+  host: 127.0.0.1
+  port: 3306
+  user: root
+  password: root@123!23
+  database: waverless-portal
+  max_idle_conns: 10
+  max_open_conns: 100
+  conn_max_lifetime: 3600  # 秒
+  
+
+redis:
+  addr: localhost:6379
+  password: ""
+  db: 0
+
+logger:
+  level: info  # debug, info, warn, error
+  output: console  # console, file, both
+  file:
+    path: /var/log/portal.log
+    max_size: 100  # MB
+    max_backups: 3
+    max_age: 7  # 天
+    compress: false
+
+billing:
+  enabled: true
+  interval_seconds: 60  # 计费间隔(秒), 每分钟计费一次
+
+main_site:
+  url: https://wavespeed.ai
+  api_url: https://api.wavespeed.ai

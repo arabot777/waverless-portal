@@ -1,0 +1,6 @@
+@import './styles/portal.css';
+
+.app {
+  min-height: 100vh;
+  background: #141414;
+}
