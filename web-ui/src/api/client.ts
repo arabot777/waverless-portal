@@ -78,9 +78,6 @@ export const getEndpointStatistics = (name: string) =>
   api.get(`/api/v1/endpoints/${name}/statistics`).then(r => r.data)
 
 // Billing
-export const getBalance = () => 
-  api.get('/api/v1/billing/balance').then(r => r.data)
-
 export const getUsage = (from?: string, to?: string) =>
   api.get('/api/v1/billing/usage', { params: { from, to } }).then(r => r.data)
 
@@ -94,14 +91,24 @@ export const submitTask = (endpoint: string, input: unknown, sync = false) =>
 export const getTaskStatus = (taskId: string) =>
   api.get(`/v1/status/${taskId}`).then(r => r.data)
 
-export const getEndpointTasks = (endpoint: string, params?: { limit?: number; offset?: number; status?: string; task_id?: string }) =>
+export const cancelTask = (taskId: string) =>
+  api.post(`/v1/cancel/${taskId}`).then(r => r.data)
+
+export const getTaskTimeline = (taskId: string) =>
+  api.get(`/api/v1/tasks/${taskId}/timeline`).then(r => r.data)
+
+export const getTaskExecutionHistory = (taskId: string) =>
+  api.get(`/api/v1/tasks/${taskId}/execution-history`).then(r => r.data)
+
+export const getEndpointTasks = (endpoint: string, params?: { limit?: number; offset?: number; status?: string; task_id?: string; worker_id?: string }) =>
   api.get(`/api/v1/endpoints/${endpoint}/tasks`, { params }).then(r => r.data)
 
 export const getAllTasks = (params?: { limit?: number; offset?: number; status?: string; task_id?: string }) =>
   api.get('/api/v1/tasks', { params }).then(r => r.data)
 
-export const getRechargeRecords = (limit?: number, offset?: number) =>
-  api.get('/api/v1/billing/records', { params: { limit, offset } }).then(r => r.data)
+// Scaling History
+export const getScalingHistory = (endpoint: string, limit?: number) =>
+  api.get(`/api/v1/endpoints/${endpoint}/scaling-history`, { params: { limit } }).then(r => r.data)
 
 // Clusters (Admin)
 export const getClusters = () => api.get('/api/v1/admin/clusters').then(r => r.data)

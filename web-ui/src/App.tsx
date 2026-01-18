@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react'
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import Sidebar from './components/Sidebar'
 import Header from './components/Header'
-import Dashboard from './pages/Dashboard'
 import Serverless from './pages/Serverless'
 import Endpoints from './pages/Endpoints'
 import EndpointDetail from './pages/EndpointDetail'
@@ -16,7 +15,6 @@ import { useUserStore } from './store/userStore'
 import './index.css'
 
 const pageTitles: Record<string, string> = {
-  '/dashboard': 'Dashboard',
   '/serverless': 'Serverless',
   '/endpoints': 'Endpoints',
   '/tasks': 'Tasks',
@@ -59,7 +57,6 @@ function AppLayout() {
         <Header title={getPageTitle()} />
         <div className="content">
           <Routes>
-            <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/serverless" element={<Serverless />} />
             <Route path="/endpoints" element={<Endpoints />} />
             <Route path="/endpoints/:name" element={<EndpointDetail />} />
@@ -68,6 +65,7 @@ function AppLayout() {
             <Route path="/clusters" element={<Clusters />} />
             <Route path="/clusters/:id" element={<ClusterDetail />} />
             <Route path="/specs" element={<SpecsAdmin />} />
+            <Route path="*" element={<Navigate to="/endpoints" replace />} />
           </Routes>
         </div>
       </div>
@@ -90,7 +88,7 @@ function App() {
           <AppLayout />
         </ProtectedRoute>
       } />
-      <Route path="/" element={<Navigate to="/dashboard" replace />} />
+      <Route path="/" element={<Navigate to="/endpoints" replace />} />
     </Routes>
   )
 }

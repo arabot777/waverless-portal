@@ -27,7 +27,7 @@ interface GlobalSpec {
   gpu_count: number
   cpu_cores: number
   ram_gb: number
-  default_price_per_hour: number
+  price_per_hour: number
 }
 
 export default function ClusterDetail() {
@@ -152,7 +152,7 @@ export default function ClusterDetail() {
                     <td><span className={`tag ${info?.spec_type?.toLowerCase() || ''}`}>{info?.spec_type || '-'}</span></td>
                     <td>{info?.spec_type === 'GPU' ? `${info.gpu_count}x ${info.gpu_type}` : '-'}</td>
                     <td>{info ? `${info.cpu_cores}C / ${info.ram_gb}GB` : '-'}</td>
-                    <td>{info ? `$${info.default_price_per_hour.toFixed(2)}` : '-'}</td>
+                    <td>{info ? `$${info.price_per_hour.toFixed(2)}` : '-'}</td>
                     <td>{s.available_capacity}/{s.total_capacity}</td>
                     <td><span className={`tag ${s.is_available ? 'active' : 'offline'}`}>{s.is_available ? 'Available' : 'Disabled'}</span></td>
                     <td>
@@ -189,7 +189,7 @@ export default function ClusterDetail() {
                 {selectedSpec.spec_type === 'GPU' && <> GPU: <strong>{selectedSpec.gpu_count}x {selectedSpec.gpu_type}</strong> · </>}
                 CPU: <strong>{selectedSpec.cpu_cores}</strong> · 
                 RAM: <strong>{selectedSpec.ram_gb}GB</strong> · 
-                Price: <strong>${selectedSpec.default_price_per_hour.toFixed(2)}/hr</strong>
+                Price: <strong>${selectedSpec.price_per_hour.toFixed(2)}/hr</strong>
               </div>
             </div>
           )}

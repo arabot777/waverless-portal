@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -107,10 +108,17 @@ func (c *Client) UpdateEndpointConfig(ctx context.Context, name string, config m
 	return c.doRequest(ctx, "PUT", fmt.Sprintf("/api/v1/autoscaler/endpoints/%s", name), config, nil)
 }
 
-// GetEndpointWorkers 获取 Endpoint Worker 列表
+// GetEndpointWorkers 获取 Endpoint Worker 列表 (只返回活跃的)
 func (c *Client) GetEndpointWorkers(ctx context.Context, name string) ([]map[string]interface{}, error) {
 	var resp []map[string]interface{}
 	err := c.doRequest(ctx, "GET", fmt.Sprintf("/api/v1/endpoints/%s/workers", name), nil, &resp)
+	return resp, err
+}
+
+// GetWorker 获取单个 Worker 详情 (包括 OFFLINE)
+func (c *Client) GetWorker(ctx context.Context, workerID string) (map[string]interface{}, error) {
+	var resp map[string]interface{}
+	err := c.doRequest(ctx, "GET", fmt.Sprintf("/api/v1/workers/%s", workerID), nil, &resp)
 	return resp, err
 }
 
@@ -176,16 +184,20 @@ func (c *Client) GetTasksOverview(ctx context.Context) (map[string]interface{}, 
 	return resp, err
 }
 
-// GetEndpointStats 获取 Endpoint 统计数据
-func (c *Client) GetEndpointStats(ctx context.Context, name, granularity, from, to string) (interface{}, error) {
-	path := fmt.Sprintf("/v1/%s/metrics/stats?granularity=%s", name, granularity)
+// GetEndpointStats 获取 Endpoint 统计数据 (透传)
+func (c *Client) GetEndpointStats(ctx context.Context, name, from, to string) (map[string]interface{}, error) {
+	path := fmt.Sprintf("/v1/%s/metrics/stats", name)
+	params := []string{}
 	if from != "" {
-		path += "&from=" + from
+		params = append(params, "from="+from)
 	}
 	if to != "" {
-		path += "&to=" + to
+		params = append(params, "to="+to)
 	}
-	var resp interface{}
+	if len(params) > 0 {
+		path += "?" + strings.Join(params, "&")
+	}
+	var resp map[string]interface{}
 	err := c.doRequest(ctx, "GET", path, nil, &resp)
 	return resp, err
 }
@@ -216,6 +228,27 @@ func (c *Client) GetTaskStatus(ctx context.Context, taskID string) (*TaskRespons
 // CancelTask 取消任务
 func (c *Client) CancelTask(ctx context.Context, taskID string) error {
 	return c.doRequest(ctx, "POST", fmt.Sprintf("/v1/cancel/%s", taskID), nil, nil)
+}
+
+// GetTaskTimeline 获取任务时间线
+func (c *Client) GetTaskTimeline(ctx context.Context, taskID string) (map[string]interface{}, error) {
+	var resp map[string]interface{}
+	err := c.doRequest(ctx, "GET", fmt.Sprintf("/v1/tasks/%s/timeline", taskID), nil, &resp)
+	return resp, err
+}
+
+// GetTaskExecutionHistory 获取任务执行历史
+func (c *Client) GetTaskExecutionHistory(ctx context.Context, taskID string) (map[string]interface{}, error) {
+	var resp map[string]interface{}
+	err := c.doRequest(ctx, "GET", fmt.Sprintf("/v1/tasks/%s/execution-history", taskID), nil, &resp)
+	return resp, err
+}
+
+// GetScalingHistory 获取扩缩容历史
+func (c *Client) GetScalingHistory(ctx context.Context, endpoint string, limit int) ([]map[string]interface{}, error) {
+	var resp []map[string]interface{}
+	err := c.doRequest(ctx, "GET", fmt.Sprintf("/api/v1/autoscaler/endpoints/%s/history?limit=%d", endpoint, limit), nil, &resp)
+	return resp, err
 }
 
 func (c *Client) doRequest(ctx context.Context, method, path string, body interface{}, result interface{}) error {

@@ -3,26 +3,39 @@ package handler
 import (
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
+	"github.com/wavespeedai/waverless-portal/internal/jobs"
 	"github.com/wavespeedai/waverless-portal/internal/service"
+	"github.com/wavespeedai/waverless-portal/pkg/store/mysql"
 )
 
 type MonitoringHandler struct {
 	endpointService *service.EndpointService
 	clusterService  *service.ClusterService
+	taskRepo        *mysql.TaskRepo
+	workerRepo      *mysql.WorkerRepo
+	workerSyncJob   *jobs.WorkerSyncJob
 }
 
-func NewMonitoringHandler(endpointService *service.EndpointService, clusterService *service.ClusterService) *MonitoringHandler {
+func NewMonitoringHandler(endpointService *service.EndpointService, clusterService *service.ClusterService, taskRepo *mysql.TaskRepo, workerRepo *mysql.WorkerRepo, workerSyncJob *jobs.WorkerSyncJob) *MonitoringHandler {
 	return &MonitoringHandler{
 		endpointService: endpointService,
 		clusterService:  clusterService,
+		taskRepo:        taskRepo,
+		workerRepo:      workerRepo,
+		workerSyncJob:   workerSyncJob,
 	}
 }
 
-// GetEndpointWorkers 获取 Endpoint 的 Worker 列表
+func (h *MonitoringHandler) SetWorkerSyncJob(job *jobs.WorkerSyncJob) {
+	h.workerSyncJob = job
+}
+
+// GetEndpointWorkers 获取 Endpoint 的 Worker 列表 (从本地 workers 表)
 func (h *MonitoringHandler) GetEndpointWorkers(c *gin.Context) {
 	userID := c.GetString("user_id")
 	name := c.Param("name")
@@ -33,15 +46,12 @@ func (h *MonitoringHandler) GetEndpointWorkers(c *gin.Context) {
 		return
 	}
 
-	cluster, err := h.clusterService.GetCluster(c.Request.Context(), endpoint.ClusterID)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
+	// 先同步再返回
+	if h.workerSyncJob != nil {
+		h.workerSyncJob.SyncEndpoint(c.Request.Context(), endpoint)
 	}
 
-	// 调用 Waverless 获取 Worker 列表
-	client := h.endpointService.GetWaverlessClient(cluster)
-	workers, err := client.GetEndpointWorkers(c.Request.Context(), endpoint.PhysicalName)
+	workers, err := h.workerRepo.ListByEndpoint(c.Request.Context(), endpoint.ID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -78,19 +88,16 @@ func (h *MonitoringHandler) GetEndpointMetrics(c *gin.Context) {
 	}
 
 	// 添加价格信息
-	metrics["price_per_hour"] = endpoint.PricePerHour
+	metrics["price_per_hour"] = ToUSD(endpoint.PricePerHour)
 	metrics["endpoint_name"] = name
 
 	c.JSON(http.StatusOK, metrics)
 }
 
-// GetEndpointStats 获取 Endpoint 统计数据
+// GetEndpointStats 获取 Endpoint 统计数据 (透传 waverless)
 func (h *MonitoringHandler) GetEndpointStats(c *gin.Context) {
 	userID := c.GetString("user_id")
 	name := c.Param("name")
-	granularity := c.DefaultQuery("granularity", "hourly") // hourly, daily
-	from := c.Query("from")
-	to := c.Query("to")
 
 	endpoint, err := h.endpointService.GetByLogicalName(c.Request.Context(), userID, name)
 	if err != nil {
@@ -104,18 +111,17 @@ func (h *MonitoringHandler) GetEndpointStats(c *gin.Context) {
 		return
 	}
 
+	// 直接透传到 waverless
 	client := h.endpointService.GetWaverlessClient(cluster)
-	stats, err := client.GetEndpointStats(c.Request.Context(), endpoint.PhysicalName, granularity, from, to)
+	from := c.Query("from")
+	to := c.Query("to")
+	resp, err := client.GetEndpointStats(c.Request.Context(), endpoint.PhysicalName, from, to)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"endpoint_name": name,
-		"granularity":   granularity,
-		"stats":         stats,
-	})
+	c.JSON(http.StatusOK, resp)
 }
 
 
@@ -175,68 +181,29 @@ func (h *MonitoringHandler) GetWorkerLogs(c *gin.Context) {
 	c.String(http.StatusOK, logs)
 }
 
-// GetAllTasks 获取用户所有任务
+// GetAllTasks 获取用户所有任务 (从本地 task_routing 表)
 func (h *MonitoringHandler) GetAllTasks(c *gin.Context) {
 	userID := c.GetString("user_id")
 	status := c.Query("status")
-	endpointFilter := c.Query("endpoint")
-	taskID := c.Query("task_id")
-	limit := c.DefaultQuery("limit", "100")
-	offset := c.DefaultQuery("offset", "0")
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
+	offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
 
-	endpoints, err := h.endpointService.List(c.Request.Context(), userID)
-	if err != nil || len(endpoints) == 0 {
-		c.JSON(http.StatusOK, gin.H{"tasks": []interface{}{}, "total": 0})
-		return
-	}
-
-	cluster, err := h.clusterService.GetCluster(c.Request.Context(), endpoints[0].ClusterID)
+	tasks, total, err := h.taskRepo.List(c.Request.Context(), userID, status, limit, offset)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	var physicalNames []string
-	for _, ep := range endpoints {
-		if endpointFilter == "" || endpointFilter == ep.LogicalName {
-			physicalNames = append(physicalNames, ep.PhysicalName)
-		}
-	}
-
-	client := h.endpointService.GetWaverlessClient(cluster)
-	allTasks := []interface{}{}
-	for _, pn := range physicalNames {
-		tasks, err := client.GetTasks(c.Request.Context(), pn, "", status, taskID, limit, offset)
-		if err == nil {
-			if t, ok := tasks["tasks"].([]interface{}); ok {
-				allTasks = append(allTasks, t...)
-			}
-		}
-	}
-
-	c.JSON(http.StatusOK, gin.H{"tasks": allTasks, "total": len(allTasks)})
+	c.JSON(http.StatusOK, gin.H{"tasks": tasks, "total": total})
 }
 
-// GetTasksOverview 获取任务总览统计
+// GetTasksOverview 获取任务总览统计 (从本地 task_routing 表)
 func (h *MonitoringHandler) GetTasksOverview(c *gin.Context) {
 	userID := c.GetString("user_id")
 
-	endpoints, err := h.endpointService.List(c.Request.Context(), userID)
-	if err != nil || len(endpoints) == 0 {
+	overview, err := h.taskRepo.GetOverview(c.Request.Context(), userID)
+	if err != nil {
 		c.JSON(http.StatusOK, gin.H{"completed": 0, "in_progress": 0, "pending": 0, "failed": 0})
-		return
-	}
-
-	cluster, err := h.clusterService.GetCluster(c.Request.Context(), endpoints[0].ClusterID)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	client := h.endpointService.GetWaverlessClient(cluster)
-	overview, err := client.GetTasksOverview(c.Request.Context())
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
@@ -273,6 +240,89 @@ func (h *MonitoringHandler) GetWorkerTasks(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, tasks)
+}
+
+// GetTaskTimeline 获取任务时间线
+func (h *MonitoringHandler) GetTaskTimeline(c *gin.Context) {
+	userID := c.GetString("user_id")
+	taskID := c.Param("task_id")
+
+	// 从本地 task_routing 获取任务信息
+	task, err := h.taskRepo.GetByTaskID(c.Request.Context(), taskID, userID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "task not found"})
+		return
+	}
+
+	cluster, err := h.clusterService.GetCluster(c.Request.Context(), task.ClusterID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	client := h.endpointService.GetWaverlessClient(cluster)
+	timeline, err := client.GetTaskTimeline(c.Request.Context(), taskID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, timeline)
+}
+
+// GetTaskExecutionHistory 获取任务执行历史
+func (h *MonitoringHandler) GetTaskExecutionHistory(c *gin.Context) {
+	userID := c.GetString("user_id")
+	taskID := c.Param("task_id")
+
+	task, err := h.taskRepo.GetByTaskID(c.Request.Context(), taskID, userID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "task not found"})
+		return
+	}
+
+	cluster, err := h.clusterService.GetCluster(c.Request.Context(), task.ClusterID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	client := h.endpointService.GetWaverlessClient(cluster)
+	history, err := client.GetTaskExecutionHistory(c.Request.Context(), taskID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, history)
+}
+
+// GetScalingHistory 获取扩缩容历史
+func (h *MonitoringHandler) GetScalingHistory(c *gin.Context) {
+	userID := c.GetString("user_id")
+	name := c.Param("name")
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "50"))
+
+	endpoint, err := h.endpointService.GetByLogicalName(c.Request.Context(), userID, name)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "endpoint not found"})
+		return
+	}
+
+	cluster, err := h.clusterService.GetCluster(c.Request.Context(), endpoint.ClusterID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	client := h.endpointService.GetWaverlessClient(cluster)
+	history, err := client.GetScalingHistory(c.Request.Context(), endpoint.PhysicalName, limit)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, history)
 }
 
 // ExecWorker WebSocket 代理到 waverless

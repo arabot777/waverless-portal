@@ -10,7 +10,6 @@ export interface UserInfo {
   role: string
   user_type?: 'admin' | 'regular'
   permissions: string[]
-  balance: number
 }
 
 export const authApi = {

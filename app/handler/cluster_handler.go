@@ -2,7 +2,6 @@ package handler
 
 import (
 	"net/http"
-	"time"
 
 	"github.com/wavespeedai/waverless-portal/internal/service"
 	"github.com/wavespeedai/waverless-portal/pkg/store/mysql/model"
@@ -197,44 +196,12 @@ func NewWebhookHandler(billingService *service.BillingService) *WebhookHandler {
 	return &WebhookHandler{billingService: billingService}
 }
 
-// WorkerCreated Worker 创建通知
+// WorkerCreated Worker 创建通知 (deprecated - now using WorkerSyncJob)
 func (h *WebhookHandler) WorkerCreated(c *gin.Context) {
-	var req struct {
-		WorkerID     string    `json:"worker_id"`
-		ClusterID    string    `json:"cluster_id"`
-		Endpoint     string    `json:"endpoint"`
-		PodStartedAt time.Time `json:"pod_started_at"`
-		GPUType      string    `json:"gpu_type"`
-		GPUCount     int       `json:"gpu_count"`
-	}
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	if err := h.billingService.OnWorkerCreated(c.Request.Context(), req.WorkerID, req.ClusterID, req.Endpoint, req.PodStartedAt, req.GPUType, req.GPUCount); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
 	c.JSON(http.StatusOK, gin.H{"message": "ok"})
 }
 
-// WorkerTerminated Worker 终止通知
+// WorkerTerminated Worker 终止通知 (deprecated - now using WorkerSyncJob)
 func (h *WebhookHandler) WorkerTerminated(c *gin.Context) {
-	var req struct {
-		WorkerID        string    `json:"worker_id"`
-		PodTerminatedAt time.Time `json:"pod_terminated_at"`
-	}
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	if err := h.billingService.OnWorkerTerminated(c.Request.Context(), req.WorkerID, req.PodTerminatedAt); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
 	c.JSON(http.StatusOK, gin.H{"message": "ok"})
 }

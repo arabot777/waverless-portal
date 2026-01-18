@@ -16,26 +16,26 @@ func NewSpecRepo(db *gorm.DB) *SpecRepo {
 }
 
 type SpecWithAvailability struct {
-	SpecName          string  `json:"spec_name"`
-	SpecType          string  `json:"spec_type"`
-	GPUType           string  `json:"gpu_type,omitempty"`
-	GPUCount          int     `json:"gpu_count"`
-	CPUCores          int     `json:"cpu_cores"`
-	RAMGB             int     `json:"ram_gb"`
-	DiskGB            int     `json:"disk_gb"`
-	PricePerHour      float64 `json:"price_per_hour"`
-	Currency          string  `json:"currency"`
-	Description       string  `json:"description"`
-	AvailableClusters int     `json:"available_clusters"`
-	TotalCapacity     int     `json:"total_capacity"`
-	AvailableCapacity int     `json:"available_capacity"`
+	SpecName          string `json:"spec_name"`
+	SpecType          string `json:"spec_type"`
+	GPUType           string `json:"gpu_type,omitempty"`
+	GPUCount          int    `json:"gpu_count"`
+	CPUCores          int    `json:"cpu_cores"`
+	RAMGB             int    `json:"ram_gb"`
+	DiskGB            int    `json:"disk_gb"`
+	PricePerHour      int64  `json:"price_per_hour"`
+	Currency          string `json:"currency"`
+	Description       string `json:"description"`
+	AvailableClusters int    `json:"available_clusters"`
+	TotalCapacity     int    `json:"total_capacity"`
+	AvailableCapacity int    `json:"available_capacity"`
 }
 
 func (r *SpecRepo) ListWithAvailability(ctx context.Context, specType string) ([]SpecWithAvailability, error) {
 	query := `
 		SELECT 
 			sp.spec_name, sp.spec_type, sp.gpu_type, sp.gpu_count, sp.cpu_cores, sp.ram_gb, sp.disk_gb,
-			sp.default_price_per_hour as price_per_hour, sp.currency, sp.description,
+			sp.price_per_hour, sp.currency, sp.description,
 			COALESCE(agg.available_clusters, 0) as available_clusters,
 			COALESCE(agg.total_capacity, 0) as total_capacity,
 			COALESCE(agg.available_capacity, 0) as available_capacity
@@ -50,7 +50,7 @@ func (r *SpecRepo) ListWithAvailability(ctx context.Context, specType string) ([
 	if specType != "" {
 		query += " AND sp.spec_type = ?"
 	}
-	query += " ORDER BY sp.spec_type, sp.default_price_per_hour"
+	query += " ORDER BY sp.spec_type, sp.price_per_hour"
 
 	var specs []SpecWithAvailability
 	var err error
@@ -70,7 +70,7 @@ func (r *SpecRepo) GetByName(ctx context.Context, specName string) (*model.SpecP
 
 func (r *SpecRepo) List(ctx context.Context) ([]model.SpecPricing, error) {
 	var specs []model.SpecPricing
-	err := r.db.WithContext(ctx).Order("spec_type, default_price_per_hour").Find(&specs).Error
+	err := r.db.WithContext(ctx).Order("spec_type, price_per_hour").Find(&specs).Error
 	return specs, err
 }
 

@@ -19,13 +19,13 @@ type SpecPricing struct {
 	RAMGB    int    `gorm:"column:ram_gb;not null" json:"ram_gb"`                                  // 内存大小
 	DiskGB   int    `gorm:"column:disk_gb" json:"disk_gb"`                                         // 磁盘大小
 
-	// 默认价格
-	DefaultPricePerHour float64 `gorm:"column:default_price_per_hour;type:decimal(10,4);not null" json:"default_price_per_hour"`
-	Currency            string  `gorm:"column:currency;type:varchar(10);default:'USD'" json:"currency"`
+	// 价格 (单位: 1/1000000 USD)
+	PricePerHour int64  `gorm:"column:price_per_hour;type:bigint;not null" json:"price_per_hour"`
+	Currency     string `gorm:"column:currency;type:varchar(10);default:'USD'" json:"currency"`
 
 	// 价格范围(可选)
-	MinPrice float64 `gorm:"column:min_price;type:decimal(10,4)" json:"min_price"`
-	MaxPrice float64 `gorm:"column:max_price;type:decimal(10,4)" json:"max_price"`
+	MinPrice int64 `gorm:"column:min_price;type:bigint" json:"min_price"`
+	MaxPrice int64 `gorm:"column:max_price;type:bigint" json:"max_price"`
 
 	// 描述
 	Description string `gorm:"column:description;type:text" json:"description"`
@@ -49,9 +49,9 @@ type ClusterPricingOverride struct {
 	ClusterID string `gorm:"column:cluster_id;type:varchar(100);not null;uniqueIndex:uk_cluster_spec" json:"cluster_id"`
 	SpecName  string `gorm:"column:spec_name;type:varchar(100);not null;uniqueIndex:uk_cluster_spec" json:"spec_name"` // 改为 spec_name,支持 GPU 和 CPU
 
-	// 覆盖价格
-	PricePerHour float64 `gorm:"column:price_per_hour;type:decimal(10,4);not null" json:"price_per_hour"`
-	Currency     string  `gorm:"column:currency;type:varchar(10);default:'USD'" json:"currency"`
+	// 覆盖价格 (单位: 1/1000000 USD)
+	PricePerHour int64  `gorm:"column:price_per_hour;type:bigint;not null" json:"price_per_hour"`
+	Currency     string `gorm:"column:currency;type:varchar(10);default:'USD'" json:"currency"`
 
 	// 生效时间
 	EffectiveFrom  *time.Time `gorm:"column:effective_from;index:idx_effective" json:"effective_from"`

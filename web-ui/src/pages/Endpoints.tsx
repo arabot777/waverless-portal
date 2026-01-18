@@ -113,7 +113,7 @@ export default function Endpoints() {
                       {ep.logical_name}
                     </a>
                   </td>
-                  <td><span className={`tag ${ep.spec_type.toLowerCase()}`}>{ep.spec_name}</span></td>
+                  <td><span className={`tag ${(ep.spec_type || 'gpu').toLowerCase()}`}>{ep.spec_name}</span></td>
                   <td>{ep.cluster_id}</td>
                   <td>{ep.current_replicas ?? 0}/{ep.replicas ?? 0}</td>
                   <td>${ep.price_per_hour?.toFixed(2)}</td>

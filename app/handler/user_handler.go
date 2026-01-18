@@ -52,10 +52,10 @@ func (h *UserHandler) GetCurrentUser(c *gin.Context) {
 		userType = "admin"
 	}
 
-	// 获取用户余额
-	var balance float64
-	if userBalance, err := h.userService.GetBalance(c.Request.Context(), user.UserID); err == nil {
-		balance = userBalance.Balance
+	// 获取用户余额 (从主站)
+	var balance int64
+	if orgID != "" {
+		balance, _ = wavespeed.GetOrgBalance(c.Request.Context(), orgID, tokenString)
 	}
 
 	c.JSON(http.StatusOK, gin.H{
@@ -67,6 +67,6 @@ func (h *UserHandler) GetCurrentUser(c *gin.Context) {
 		"role":        role,
 		"user_type":   userType,
 		"permissions": user.Permissions,
-		"balance":     balance,
+		"balance":     ToUSD(balance),
 	})
 }

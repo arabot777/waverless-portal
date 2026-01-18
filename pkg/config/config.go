@@ -20,6 +20,7 @@ type Config struct {
 	Logger   LoggerConfig   `mapstructure:"logger"`
 	Billing  BillingConfig  `mapstructure:"billing"`
 	MainSite MainSiteConfig `mapstructure:"main_site"`
+	RocketMQ RocketMQConfig `mapstructure:"rocketmq"`
 }
 
 // ServerConfig 服务器配置
@@ -78,8 +79,15 @@ type BillingConfig struct {
 
 // MainSiteConfig 主站配置
 type MainSiteConfig struct {
-	URL    string `mapstructure:"url"`     // 主站地址
-	APIURL string `mapstructure:"api_url"` // API 地址
+	URL                string `mapstructure:"url"`                  // 主站地址
+	APIURL             string `mapstructure:"api_url"`              // API 地址
+	InternalServiceKey string `mapstructure:"internal_service_key"` // 内部服务认证密钥
+}
+
+// RocketMQConfig RocketMQ 配置
+type RocketMQConfig struct {
+	NameServer    string `mapstructure:"name_server"`
+	ProducerGroup string `mapstructure:"producer_group"`
 }
 
 // Load 加载配置

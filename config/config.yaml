@@ -40,3 +40,4 @@ billing:
 main_site:
   url: https://wavespeed.ai
   api_url: https://api.wavespeed.ai
+  internal_service_key: PSQHce4rliuiKHUX3NKwfQvrLPjwNmxUayayvUyRXGk=

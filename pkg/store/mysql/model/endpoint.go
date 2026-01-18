@@ -66,9 +66,9 @@ type UserEndpoint struct {
 	TaskTimeout int     `gorm:"column:task_timeout;default:3600" json:"task_timeout"`
 	Env         JSONMap `gorm:"column:env;type:json" json:"env"` // 环境变量
 
-	// 价格信息(创建时锁定)
-	PricePerHour float64 `gorm:"column:price_per_hour;type:decimal(10,4)" json:"price_per_hour"`
-	Currency     string  `gorm:"column:currency;type:varchar(10);default:'USD'" json:"currency"`
+	// 价格信息(创建时锁定, 单位: 1/1000000 USD)
+	PricePerHour int64  `gorm:"column:price_per_hour;type:bigint" json:"price_per_hour"`
+	Currency     string `gorm:"column:currency;type:varchar(10);default:'USD'" json:"currency"`
 
 	// 调度偏好
 	PreferRegion string `gorm:"column:prefer_region;type:varchar(100)" json:"prefer_region"` // 用户偏好区域

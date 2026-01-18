@@ -23,10 +23,7 @@ export default function Header({ title = 'Dashboard' }: HeaderProps) {
                 <UserOutlined />
               )}
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
-              <span>{user.user_name || user.email}</span>
-              <span style={{ fontSize: 12, color: 'var(--success)' }}>${user.balance?.toFixed(2) || '0.00'}</span>
-            </div>
+            <span>{user.user_name || user.email}</span>
           </>
         ) : (
           <a href="https://wavespeed.ai/login" style={{ color: 'var(--primary)' }}>Login</a>

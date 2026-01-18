@@ -58,9 +58,9 @@ func JWTAuthWithUserService(userService *service.UserService) gin.HandlerFunc {
 		c.Set("role", claims.Role)
 		c.Set("claims", claims)
 
-		// 自动创建/更新用户余额记录
+		// 自动创建/更新用户记录
 		if userService != nil {
-			userService.EnsureUserBalance(c.Request.Context(), claims.UserID, claims.OrgID, claims.UserName, claims.Email)
+			userService.EnsureUser(c.Request.Context(), claims.UserID, claims.OrgID, claims.UserName, claims.Email)
 		}
 
 		c.Next()

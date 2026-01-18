@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"github.com/wavespeedai/waverless-portal/internal/service"
+	"github.com/wavespeedai/waverless-portal/pkg/config"
+	"github.com/wavespeedai/waverless-portal/pkg/wavespeed"
 
 	"github.com/gin-gonic/gin"
 )
@@ -22,22 +24,21 @@ func NewBillingHandler(billingService *service.BillingService, userService *serv
 	}
 }
 
-// GetBalance 获取余额
+// GetBalance 获取余额 (从主站获取)
 func (h *BillingHandler) GetBalance(c *gin.Context) {
-	userID := c.GetString("user_id")
+	orgID := c.GetString("org_id")
+	cookieName := config.GetCookieName()
+	cookie, _ := c.Cookie(cookieName)
 
-	balance, err := h.userService.GetBalance(c.Request.Context(), userID)
+	balance, err := wavespeed.GetOrgBalance(c.Request.Context(), orgID, cookie)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"balance":               balance.Balance,
-		"credit_limit":          balance.CreditLimit,
-		"currency":              balance.Currency,
-		"status":                balance.Status,
-		"low_balance_threshold": balance.LowBalanceThreshold,
+		"balance":  ToUSD(balance),
+		"currency": "USD",
 	})
 }
 
@@ -45,9 +46,9 @@ func (h *BillingHandler) GetBalance(c *gin.Context) {
 func (h *BillingHandler) GetUsage(c *gin.Context) {
 	userID := c.GetString("user_id")
 
-	// 默认查询最近 30 天
+	// 默认查询最近 7 天
 	to := time.Now()
-	from := to.AddDate(0, 0, -30)
+	from := to.AddDate(0, 0, -7)
 
 	if fromStr := c.Query("from"); fromStr != "" {
 		if t, err := time.Parse(time.RFC3339, fromStr); err == nil {
@@ -66,6 +67,8 @@ func (h *BillingHandler) GetUsage(c *gin.Context) {
 		return
 	}
 
+	// 转换金额为 USD
+	stats["total_amount"] = ToUSD(stats["total_amount"].(int64))
 	c.JSON(http.StatusOK, stats)
 }
 
@@ -92,39 +95,27 @@ func (h *BillingHandler) GetWorkerRecords(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"records": records,
-		"total":   total,
-		"limit":   limit,
-		"offset":  offset,
-	})
-}
-
-// GetRechargeRecords 获取充值记录
-func (h *BillingHandler) GetRechargeRecords(c *gin.Context) {
-	userID := c.GetString("user_id")
-
-	limit := 20
-	offset := 0
-	if l := c.Query("limit"); l != "" {
-		if v, err := strconv.Atoi(l); err == nil {
-			limit = v
-		}
-	}
-	if o := c.Query("offset"); o != "" {
-		if v, err := strconv.Atoi(o); err == nil {
-			offset = v
+	// 转换金额为 USD
+	result := make([]map[string]interface{}, len(records))
+	for i, r := range records {
+		result[i] = map[string]interface{}{
+			"id":                   r.ID,
+			"worker_id":            r.WorkerID,
+			"endpoint_id":          r.EndpointID,
+			"endpoint_name":        r.EndpointName,
+			"spec_name":            r.SpecName,
+			"billing_period_start": r.BillingPeriodStart,
+			"billing_period_end":   r.BillingPeriodEnd,
+			"duration_seconds":     r.DurationSeconds,
+			"price_per_hour":       ToUSD(r.PricePerHour),
+			"amount":               ToUSD(r.Amount),
+			"status":               r.Status,
+			"created_at":           r.CreatedAt,
 		}
 	}
 
-	records, total, err := h.userService.GetRechargeRecords(c.Request.Context(), userID, limit, offset)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
 	c.JSON(http.StatusOK, gin.H{
-		"records": records,
+		"records": result,
 		"total":   total,
 		"limit":   limit,
 		"offset":  offset,

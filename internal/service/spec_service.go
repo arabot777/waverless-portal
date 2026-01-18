@@ -39,10 +39,10 @@ func (s *SpecService) DeleteSpec(ctx context.Context, id int64) error {
 	return s.repo.Delete(ctx, id)
 }
 
-func (s *SpecService) EstimateCost(ctx context.Context, specName string, hours float64, replicas int) (float64, error) {
+func (s *SpecService) EstimateCost(ctx context.Context, specName string, hours float64, replicas int) (int64, error) {
 	spec, err := s.repo.GetByName(ctx, specName)
 	if err != nil {
 		return 0, err
 	}
-	return spec.DefaultPricePerHour * hours * float64(replicas), nil
+	return int64(float64(spec.PricePerHour) * hours * float64(replicas)), nil
 }

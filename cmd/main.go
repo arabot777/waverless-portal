@@ -15,6 +15,7 @@ import (
 	"github.com/wavespeedai/waverless-portal/internal/service"
 	"github.com/wavespeedai/waverless-portal/pkg/config"
 	"github.com/wavespeedai/waverless-portal/pkg/logger"
+	"github.com/wavespeedai/waverless-portal/pkg/rocketmq"
 	"github.com/wavespeedai/waverless-portal/pkg/store/mysql"
 	"github.com/wavespeedai/waverless-portal/pkg/store/redis"
 
@@ -47,18 +48,26 @@ func main() {
 	}
 	defer redisClient.Close()
 
+	// RocketMQ
+	if err := rocketmq.Init(); err != nil {
+		logger.Warnf("Failed to init RocketMQ: %v", err)
+	}
+	defer rocketmq.Close()
+
 	// Repositories
 	userRepo := mysql.NewUserRepo(mysqlRepo.DB)
 	clusterRepo := mysql.NewClusterRepo(mysqlRepo.DB)
 	endpointRepo := mysql.NewEndpointRepo(mysqlRepo.DB)
 	billingRepo := mysql.NewBillingRepo(mysqlRepo.DB)
 	specRepo := mysql.NewSpecRepo(mysqlRepo.DB)
+	workerRepo := mysql.NewWorkerRepo(mysqlRepo.DB)
+	taskRepo := mysql.NewTaskRepo(mysqlRepo.DB)
 
 	// Services
 	userService := service.NewUserService(userRepo)
 	clusterService := service.NewClusterService(clusterRepo)
 	endpointService := service.NewEndpointService(endpointRepo, clusterRepo, specRepo, clusterService)
-	taskService := service.NewTaskService(billingRepo, endpointService, clusterService)
+	taskService := service.NewTaskService(taskRepo, endpointService, clusterService)
 	specService := service.NewSpecService(specRepo)
 	billingService := service.NewBillingService(billingRepo, userRepo, endpointRepo)
 
@@ -69,7 +78,7 @@ func main() {
 	billingHandler := handler.NewBillingHandler(billingService, userService)
 	clusterHandler := handler.NewClusterHandler(clusterService)
 	webhookHandler := handler.NewWebhookHandler(billingService)
-	monitoringHandler := handler.NewMonitoringHandler(endpointService, clusterService)
+	monitoringHandler := handler.NewMonitoringHandler(endpointService, clusterService, taskRepo, workerRepo, nil)
 	userHandler := handler.NewUserHandler(userService)
 
 	// Router
@@ -98,6 +107,29 @@ func main() {
 	// Endpoint sync service
 	endpointSyncService := jobs.NewEndpointSyncService(endpointRepo, clusterService, endpointService)
 	endpointSyncService.Start()
+
+	// Worker sync job
+	workerSyncJob := jobs.NewWorkerSyncJob(mysqlRepo.DB, clusterService, endpointService)
+	go workerSyncJob.Start(context.Background())
+
+	// Metrics sync job
+	metricsSyncJob := jobs.NewMetricsSyncJob(mysqlRepo.DB, clusterService, endpointService)
+	go metricsSyncJob.Start(context.Background())
+
+	// Task sync job
+	taskSyncJob := jobs.NewTaskSyncJob(mysqlRepo.DB, clusterService, endpointService)
+	go taskSyncJob.Start(context.Background())
+
+	// Billing job
+	billingJob := jobs.NewBillingJob(mysqlRepo.DB, workerRepo, billingRepo, endpointRepo, endpointService)
+	go billingJob.Start(context.Background())
+
+	// Cleanup job (delete data older than 7 days)
+	cleanupJob := jobs.NewCleanupJob(mysqlRepo.DB)
+	go cleanupJob.Start(context.Background())
+
+	// Update monitoringHandler with workerSyncJob
+	monitoringHandler.SetWorkerSyncJob(workerSyncJob)
 
 	server := &http.Server{
 		Addr:    fmt.Sprintf("%s:%d", config.GlobalConfig.Server.Host, config.GlobalConfig.Server.Port),

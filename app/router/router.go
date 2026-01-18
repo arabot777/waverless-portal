@@ -87,6 +87,8 @@ func (r *Router) Setup(engine *gin.Engine) {
 			if r.monitoringHandler != nil {
 				auth.GET("/tasks", r.monitoringHandler.GetAllTasks)
 				auth.GET("/tasks/overview", r.monitoringHandler.GetTasksOverview)
+				auth.GET("/tasks/:task_id/timeline", r.monitoringHandler.GetTaskTimeline)
+				auth.GET("/tasks/:task_id/execution-history", r.monitoringHandler.GetTaskExecutionHistory)
 			}
 
 			// Endpoint 管理
@@ -108,6 +110,7 @@ func (r *Router) Setup(engine *gin.Engine) {
 					endpoints.GET("/:name/metrics", r.monitoringHandler.GetEndpointMetrics)
 					endpoints.GET("/:name/stats", r.monitoringHandler.GetEndpointStats)
 					endpoints.GET("/:name/statistics", r.monitoringHandler.GetEndpointStatistics)
+					endpoints.GET("/:name/scaling-history", r.monitoringHandler.GetScalingHistory)
 				}
 			}
 
@@ -117,7 +120,6 @@ func (r *Router) Setup(engine *gin.Engine) {
 				billing.GET("/balance", r.billingHandler.GetBalance)
 				billing.GET("/usage", r.billingHandler.GetUsage)
 				billing.GET("/workers", r.billingHandler.GetWorkerRecords)
-				billing.GET("/records", r.billingHandler.GetRechargeRecords)
 			}
 		}
 

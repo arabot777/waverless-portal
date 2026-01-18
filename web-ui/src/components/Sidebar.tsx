@@ -1,6 +1,5 @@
 import { NavLink, useLocation } from 'react-router-dom'
 import {
-  DashboardOutlined,
   RocketOutlined,
   CloudServerOutlined,
   UnorderedListOutlined,
@@ -18,7 +17,6 @@ interface SidebarProps {
 }
 
 const menuItems = [
-  { path: '/dashboard', icon: <DashboardOutlined />, label: 'Dashboard' },
   { path: '/serverless', icon: <RocketOutlined />, label: 'Serverless' },
   { path: '/endpoints', icon: <CloudServerOutlined />, label: 'Endpoints' },
   { path: '/tasks', icon: <UnorderedListOutlined />, label: 'Tasks' },

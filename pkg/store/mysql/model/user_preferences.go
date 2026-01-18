@@ -8,9 +8,9 @@ import (
 type UserPreferences struct {
 	UserID string `gorm:"column:user_id;primaryKey;type:varchar(100)" json:"user_id"` // 主站用户 UUID
 
-	// 预算控制
-	DailyBudgetLimit   float64 `gorm:"column:daily_budget_limit;type:decimal(12,4)" json:"daily_budget_limit"`     // 每日预算上限
-	MonthlyBudgetLimit float64 `gorm:"column:monthly_budget_limit;type:decimal(12,4)" json:"monthly_budget_limit"` // 每月预算上限
+	// 预算控制 (单位: 1/1000000 USD)
+	DailyBudgetLimit   int64 `gorm:"column:daily_budget_limit;type:bigint" json:"daily_budget_limit"`
+	MonthlyBudgetLimit int64 `gorm:"column:monthly_budget_limit;type:bigint" json:"monthly_budget_limit"`
 
 	// 自动化设置
 	AutoSuspendOnLowBalance bool `gorm:"column:auto_suspend_on_low_balance;default:true" json:"auto_suspend_on_low_balance"` // 余额不足时自动暂停

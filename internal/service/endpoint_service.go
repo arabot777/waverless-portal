@@ -58,13 +58,14 @@ func (s *EndpointService) Create(ctx context.Context, userID, orgID string, req 
 	}
 
 	sp := candidate.SpecPricing
-	physicalName := strings.ToLower(fmt.Sprintf("user-%s-%s", userID[:8], req.LogicalName))
+	// physicalName := strings.ToLower(fmt.Sprintf("user-%s-%s", userID[:8], req.LogicalName))
+	physicalName := strings.ToLower(req.LogicalName)
 	endpoint := &model.UserEndpoint{
 		UserID: userID, OrgID: orgID, LogicalName: req.LogicalName, PhysicalName: physicalName,
 		SpecName: req.SpecName, SpecType: sp.SpecType, GPUType: sp.GPUType,
 		GPUCount: sp.GPUCount, CPUCores: sp.CPUCores, RAMGB: sp.RAMGB,
 		ClusterID: candidate.Cluster.ClusterID, Replicas: req.Replicas, MinReplicas: req.MinReplicas, MaxReplicas: req.MaxReplicas,
-		Image: req.Image, TaskTimeout: req.TaskTimeout, PricePerHour: sp.DefaultPricePerHour,
+		Image: req.Image, TaskTimeout: req.TaskTimeout, PricePerHour: sp.PricePerHour,
 		Currency: "USD", PreferRegion: req.PreferRegion, Status: "deploying",
 	}
 
@@ -181,6 +182,18 @@ func (s *EndpointService) Delete(ctx context.Context, userID, logicalName string
 	return s.repo.SoftDelete(ctx, endpoint.ID)
 }
 
+// ScaleEndpoint 调整 Endpoint 副本数
+func (s *EndpointService) ScaleEndpoint(ctx context.Context, endpoint *model.UserEndpoint, replicas int) error {
+	cluster, err := s.clusterService.GetCluster(ctx, endpoint.ClusterID)
+	if err != nil {
+		return err
+	}
+	if err := s.getWaverlessClient(cluster).UpdateEndpointDeployment(ctx, endpoint.PhysicalName, replicas, "", nil); err != nil {
+		return err
+	}
+	return s.repo.Update(ctx, endpoint.ID, map[string]interface{}{"replicas": replicas})
+}
+
 func (s *EndpointService) UpdateDeployment(ctx context.Context, userID, logicalName string, replicas int, image string, env map[string]string) error {
 	endpoint, err := s.repo.GetByLogicalName(ctx, userID, logicalName)
 	if err != nil {
@@ -231,4 +244,13 @@ func (s *EndpointService) UpdateConfig(ctx context.Context, userID, logicalName 
 		return s.repo.Update(ctx, endpoint.ID, updates)
 	}
 	return nil
+}
+
+// GetSpecPrice 获取规格价格
+func (s *EndpointService) GetSpecPrice(ctx context.Context, specName string) (int64, error) {
+	spec, err := s.specRepo.GetByName(ctx, specName)
+	if err != nil {
+		return 0, err
+	}
+	return spec.PricePerHour, nil
 }

@@ -16,63 +16,43 @@ func NewBillingRepo(db *gorm.DB) *BillingRepo {
 	return &BillingRepo{db: db}
 }
 
-// Worker billing state
-func (r *BillingRepo) GetWorkerState(ctx context.Context, workerID string) (*model.WorkerBillingState, error) {
-	var state model.WorkerBillingState
-	err := r.db.WithContext(ctx).Where("worker_id = ?", workerID).First(&state).Error
-	return &state, err
-}
-
-func (r *BillingRepo) CreateWorkerState(ctx context.Context, state *model.WorkerBillingState) error {
-	return r.db.WithContext(ctx).Create(state).Error
-}
-
-func (r *BillingRepo) UpdateWorkerState(ctx context.Context, workerID string, updates map[string]interface{}) error {
-	return r.db.WithContext(ctx).Model(&model.WorkerBillingState{}).Where("worker_id = ?", workerID).Updates(updates).Error
-}
-
-func (r *BillingRepo) ListActiveWorkers(ctx context.Context) ([]model.WorkerBillingState, error) {
-	var workers []model.WorkerBillingState
-	err := r.db.WithContext(ctx).Where("billing_status = ?", "active").Find(&workers).Error
-	return workers, err
-}
-
 // Billing transactions
 func (r *BillingRepo) CreateTransaction(ctx context.Context, tx *model.BillingTransaction) error {
 	return r.db.WithContext(ctx).Create(tx).Error
 }
 
-func (r *BillingRepo) ListTransactions(ctx context.Context, userID string, limit, offset int) ([]model.BillingTransaction, int64, error) {
-	var records []model.BillingTransaction
+// BillingTransactionWithEndpoint 带 endpoint 信息的计费记录
+type BillingTransactionWithEndpoint struct {
+	model.BillingTransaction
+	EndpointName string `gorm:"column:endpoint_name"`
+	SpecName     string `gorm:"column:spec_name"`
+}
+
+func (r *BillingRepo) ListTransactions(ctx context.Context, userID string, limit, offset int) ([]BillingTransactionWithEndpoint, int64, error) {
+	var records []BillingTransactionWithEndpoint
 	var total int64
-	query := r.db.WithContext(ctx).Model(&model.BillingTransaction{}).Where("user_id = ?", userID)
-	query.Count(&total)
-	err := query.Order("created_at DESC").Limit(limit).Offset(offset).Find(&records).Error
+	r.db.WithContext(ctx).Model(&model.BillingTransaction{}).Where("user_id = ?", userID).Count(&total)
+	err := r.db.WithContext(ctx).
+		Table("billing_transactions bt").
+		Select("bt.*, ue.logical_name as endpoint_name, ue.spec_name").
+		Joins("LEFT JOIN user_endpoints ue ON bt.endpoint_id = ue.id").
+		Where("bt.user_id = ?", userID).
+		Order("bt.created_at DESC").
+		Limit(limit).Offset(offset).
+		Find(&records).Error
 	return records, total, err
 }
 
-func (r *BillingRepo) GetUsageStats(ctx context.Context, userID string, from, to time.Time) (totalAmount, totalGPUHours float64, totalSeconds int, err error) {
+func (r *BillingRepo) GetUsageStats(ctx context.Context, userID string, from, to time.Time) (totalAmount int64, totalSeconds int64, err error) {
 	var result struct {
-		TotalAmount   float64 `gorm:"column:total_amount"`
-		TotalGPUHours float64 `gorm:"column:total_gpu_hours"`
-		TotalSeconds  int     `gorm:"column:total_seconds"`
+		TotalAmount  int64 `gorm:"column:total_amount"`
+		TotalSeconds int64 `gorm:"column:total_seconds"`
 	}
 	err = r.db.WithContext(ctx).Model(&model.BillingTransaction{}).
-		Select("SUM(amount) as total_amount, SUM(gpu_hours) as total_gpu_hours, SUM(duration_seconds) as total_seconds").
+		Select("COALESCE(SUM(amount), 0) as total_amount, COALESCE(SUM(duration_seconds), 0) as total_seconds").
 		Where("user_id = ? AND created_at BETWEEN ? AND ? AND status = ?", userID, from, to, "success").
 		Scan(&result).Error
-	return result.TotalAmount, result.TotalGPUHours, result.TotalSeconds, err
-}
-
-// Task routing
-func (r *BillingRepo) CreateTaskRouting(ctx context.Context, routing *model.TaskRouting) error {
-	return r.db.WithContext(ctx).Create(routing).Error
-}
-
-func (r *BillingRepo) GetTaskRouting(ctx context.Context, taskID, userID string) (*model.TaskRouting, error) {
-	var routing model.TaskRouting
-	err := r.db.WithContext(ctx).Where("task_id = ? AND user_id = ?", taskID, userID).First(&routing).Error
-	return &routing, err
+	return result.TotalAmount, result.TotalSeconds, err
 }
 
 // Transaction support

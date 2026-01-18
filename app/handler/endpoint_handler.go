@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/wavespeedai/waverless-portal/internal/service"
+	"github.com/wavespeedai/waverless-portal/pkg/wavespeed"
 
 	"github.com/gin-gonic/gin"
 )
@@ -31,6 +32,13 @@ func (h *EndpointHandler) CreateEndpoint(c *gin.Context) {
 		return
 	}
 
+	// 检查余额
+	balance, err := wavespeed.GetOrgBalanceInternal(c.Request.Context(), orgID)
+	if err == nil && balance <= 0 {
+		c.JSON(http.StatusPaymentRequired, gin.H{"error": "insufficient balance"})
+		return
+	}
+
 	endpoint, err := h.endpointService.Create(c.Request.Context(), userID, orgID, &req)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -40,7 +48,7 @@ func (h *EndpointHandler) CreateEndpoint(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"endpoint":       endpoint.LogicalName,
 		"cluster":        endpoint.ClusterID,
-		"price_per_hour": endpoint.PricePerHour,
+		"price_per_hour": ToUSD(endpoint.PricePerHour),
 		"status":         endpoint.Status,
 	})
 }
@@ -55,7 +63,28 @@ func (h *EndpointHandler) ListEndpoints(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"endpoints": endpoints})
+	// 转换 price_per_hour 为 USD
+	result := make([]map[string]interface{}, len(endpoints))
+	for i, ep := range endpoints {
+		result[i] = map[string]interface{}{
+			"id":               ep.ID,
+			"logical_name":     ep.LogicalName,
+			"physical_name":    ep.PhysicalName,
+			"cluster_id":       ep.ClusterID,
+			"spec_name":        ep.SpecName,
+			"spec_type":        ep.SpecType,
+			"image":            ep.Image,
+			"replicas":         ep.Replicas,
+			"current_replicas": ep.CurrentReplicas,
+			"min_replicas":     ep.MinReplicas,
+			"max_replicas":     ep.MaxReplicas,
+			"status":           ep.Status,
+			"price_per_hour":   ToUSD(ep.PricePerHour),
+			"created_at":       ep.CreatedAt,
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{"endpoints": result})
 }
 
 // GetEndpoint 获取 Endpoint 详情 (透传 waverless)
@@ -79,7 +108,7 @@ func (h *EndpointHandler) GetEndpoint(c *gin.Context) {
 
 	// 合并本地数据
 	detail["logical_name"] = endpoint.LogicalName
-	detail["price_per_hour"] = endpoint.PricePerHour
+	detail["price_per_hour"] = ToUSD(endpoint.PricePerHour)
 	detail["cluster_id"] = endpoint.ClusterID
 
 	c.JSON(http.StatusOK, detail)
@@ -88,6 +117,7 @@ func (h *EndpointHandler) GetEndpoint(c *gin.Context) {
 // UpdateEndpoint 更新 Endpoint 部署 (replicas, image, env)
 func (h *EndpointHandler) UpdateEndpoint(c *gin.Context) {
 	userID := c.GetString("user_id")
+	orgID := c.GetString("org_id")
 	name := c.Param("name")
 
 	var req struct {
@@ -98,6 +128,22 @@ func (h *EndpointHandler) UpdateEndpoint(c *gin.Context) {
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
+	}
+
+	// 扩容时检查余额
+	if req.Replicas > 0 {
+		endpoint, err := h.endpointService.GetByLogicalName(c.Request.Context(), userID, name)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "endpoint not found"})
+			return
+		}
+		if req.Replicas > endpoint.Replicas {
+			balance, err := wavespeed.GetOrgBalanceInternal(c.Request.Context(), orgID)
+			if err == nil && balance <= 0 {
+				c.JSON(http.StatusPaymentRequired, gin.H{"error": "insufficient balance"})
+				return
+			}
+		}
 	}
 
 	if err := h.endpointService.UpdateDeployment(c.Request.Context(), userID, name, req.Replicas, req.Image, req.Env); err != nil {

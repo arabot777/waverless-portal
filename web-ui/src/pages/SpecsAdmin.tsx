@@ -12,7 +12,7 @@ interface Spec {
   cpu_cores: number
   ram_gb: number
   disk_gb: number
-  default_price_per_hour: number
+  price_per_hour: number
   description: string
   is_available: boolean
 }
@@ -108,7 +108,7 @@ export default function Specs() {
                   <td>{s.spec_type === 'GPU' ? `${s.gpu_count}x ${s.gpu_type}` : '-'}</td>
                   <td>{s.cpu_cores} cores</td>
                   <td>{s.ram_gb} GB</td>
-                  <td>${s.default_price_per_hour.toFixed(2)}</td>
+                  <td>${s.price_per_hour.toFixed(2)}</td>
                   <td><span className={`tag ${s.is_available ? 'active' : 'offline'}`}>{s.is_available ? 'Available' : 'Disabled'}</span></td>
                   <td>
                     <div style={{ display: 'flex', gap: 8 }}>
@@ -156,7 +156,7 @@ export default function Specs() {
             </Form.Item>
           </div>
           <div style={{ display: 'flex', gap: 16 }}>
-            <Form.Item name="default_price_per_hour" label="Price per Hour ($)" rules={[{ required: true }]} style={{ flex: 1 }}>
+            <Form.Item name="price_per_hour" label="Price per Hour ($)" rules={[{ required: true }]} style={{ flex: 1 }}>
               <InputNumber min={0} step={0.01} precision={2} style={{ width: '100%' }} />
             </Form.Item>
             <Form.Item name="is_available" label="Available" valuePropName="checked" style={{ flex: 1 }}>

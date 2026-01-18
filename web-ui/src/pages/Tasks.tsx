@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Input, Select, Tooltip, Modal, Popconfirm, message } from 'antd'
-import { SearchOutlined, EyeOutlined, StopOutlined } from '@ant-design/icons'
+import { SearchOutlined, EyeOutlined, StopOutlined, CheckCircleOutlined, ClockCircleOutlined, SyncOutlined, CloseCircleOutlined, InfoCircleOutlined } from '@ant-design/icons'
 import { getAllTasks, getTaskStatus, getEndpoints } from '../api/client'
 import api from '../api/client'
 
@@ -50,6 +50,7 @@ export default function Tasks() {
       await api.post(`/v1/cancel/${taskId}`)
       message.success('Task cancelled')
       fetchTasks()
+      api.get('/api/v1/tasks/overview').then(r => setOverview(r.data || {}))
     } catch (e: any) {
       message.error(e.response?.data?.error || 'Failed to cancel')
     }
@@ -59,41 +60,62 @@ export default function Tasks() {
     setSelectedTask(task)
     setDetailOpen(true)
     setDetailLoading(true)
-    getTaskStatus(task.id)
+    const taskId = task.task_id || task.id
+    getTaskStatus(taskId)
       .then(data => setFullTask(data))
       .catch(() => setFullTask(null))
       .finally(() => setDetailLoading(false))
   }
 
   const getStatusClass = (s: string) => s === 'COMPLETED' ? 'success' : s === 'FAILED' ? 'failed' : s === 'IN_PROGRESS' ? 'running' : 'pending'
+  const getStatusIcon = (s: string) => {
+    switch (s) {
+      case 'COMPLETED': return <CheckCircleOutlined style={{ color: '#48bb78' }} />
+      case 'IN_PROGRESS': return <SyncOutlined spin style={{ color: '#1da1f2' }} />
+      case 'PENDING': return <ClockCircleOutlined style={{ color: '#f59e0b' }} />
+      case 'FAILED': return <CloseCircleOutlined style={{ color: '#f56565' }} />
+      default: return null
+    }
+  }
+
+  // 兼容两种字段格式
+  const getTaskId = (t: any) => t.task_id || t.id
+  const getWorkerId = (t: any) => t.worker_id || t.workerId
+  const getCreatedAt = (t: any) => t.submitted_at || t.createdAt
+  const getExecTime = (t: any) => t.execution_time_ms || t.executionTime
 
   return (
     <div>
-      <h2 style={{ marginBottom: 20 }}>Tasks</h2>
+      <div className="flex justify-between items-center" style={{ marginBottom: 20 }}>
+        <h2 style={{ margin: 0 }}>Tasks</h2>
+        <span style={{ fontSize: 12, color: 'var(--warning)', display: 'flex', alignItems: 'center', gap: 4 }}>
+          <InfoCircleOutlined /> Only last 7 days data available
+        </span>
+      </div>
 
       {/* Stats */}
       <div className="stats-grid mb-4" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
         <div className="stat-card">
-          <div className="stat-value" style={{ color: '#48bb78' }}>{overview?.completed || 0}</div>
-          <div className="stat-label">Completed</div>
+          <div className="stat-icon" style={{ background: 'rgba(72,187,120,0.1)', color: '#48bb78' }}><CheckCircleOutlined /></div>
+          <div className="stat-content"><div className="stat-label">Completed</div><div className="stat-value">{overview?.completed || 0}</div></div>
         </div>
         <div className="stat-card">
-          <div className="stat-value" style={{ color: '#1da1f2' }}>{overview?.in_progress || 0}</div>
-          <div className="stat-label">In Progress</div>
+          <div className="stat-icon" style={{ background: 'rgba(29,161,242,0.1)', color: '#1da1f2' }}><SyncOutlined /></div>
+          <div className="stat-content"><div className="stat-label">In Progress</div><div className="stat-value">{overview?.in_progress || 0}</div></div>
         </div>
         <div className="stat-card">
-          <div className="stat-value" style={{ color: '#f59e0b' }}>{overview?.pending || 0}</div>
-          <div className="stat-label">Pending</div>
+          <div className="stat-icon" style={{ background: 'rgba(245,158,11,0.1)', color: '#f59e0b' }}><ClockCircleOutlined /></div>
+          <div className="stat-content"><div className="stat-label">Pending</div><div className="stat-value">{overview?.pending || 0}</div></div>
         </div>
         <div className="stat-card">
-          <div className="stat-value" style={{ color: '#f56565' }}>{overview?.failed || 0}</div>
-          <div className="stat-label">Failed</div>
+          <div className="stat-icon" style={{ background: 'rgba(245,101,101,0.1)', color: '#f56565' }}><CloseCircleOutlined /></div>
+          <div className="stat-content"><div className="stat-label">Failed</div><div className="stat-value">{overview?.failed || 0}</div></div>
         </div>
       </div>
 
       {/* Filters */}
       <div className="flex justify-between items-center mb-4">
-        <div className="flex gap-2">
+        <div className="filters">
           <Input placeholder="Search task ID..." prefix={<SearchOutlined />} value={searchInput} onChange={e => setSearchInput(e.target.value)} onPressEnter={handleSearch} style={{ width: 240 }} />
           <Select value={statusInput} onChange={setStatusInput} style={{ width: 140 }} options={[
             { value: 'all', label: 'All Status' },
@@ -116,23 +138,23 @@ export default function Tasks() {
       <div className="card">
         <div className="table-container">
           <table>
-            <thead><tr><th>Task ID</th><th>Status</th><th>Endpoint</th><th>Worker</th><th>Created</th><th>Exec Time</th><th>Actions</th></tr></thead>
+            <thead><tr><th>Task ID</th><th>Endpoint</th><th>Status</th><th>Worker</th><th>Created</th><th>Exec Time</th><th>Actions</th></tr></thead>
             <tbody>
               {loading ? <tr><td colSpan={7}><div className="loading"><div className="spinner"></div></div></td></tr> :
-               tasks.length === 0 ? <tr><td colSpan={7} style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: 40 }}>No tasks</td></tr> :
+               tasks.length === 0 ? <tr><td colSpan={7} style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: 40 }}>No tasks found</td></tr> :
                tasks.map((t: any) => (
-                 <tr key={t.id}>
-                   <td><Tooltip title={t.id}><span style={{ fontFamily: 'monospace', fontSize: 11 }}>{t.id?.substring(0, 20)}...</span></Tooltip></td>
-                   <td><span className={`tag ${getStatusClass(t.status)}`}>{t.status}</span></td>
+                 <tr key={t.id || t.task_id}>
+                   <td><Tooltip title={getTaskId(t)}><span style={{ fontFamily: 'monospace', fontSize: 11 }}>{getTaskId(t)?.substring(0, 20)}...</span></Tooltip></td>
                    <td style={{ fontSize: 12 }}>{t.endpoint || '-'}</td>
-                   <td>{t.workerId ? <Tooltip title={t.workerId}><span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{t.workerId.substring(0, 12)}...</span></Tooltip> : '-'}</td>
-                   <td style={{ fontSize: 12 }}>{t.createdAt ? new Date(t.createdAt).toLocaleString() : '-'}</td>
-                   <td style={{ fontSize: 12 }}>{t.executionTime ? `${(t.executionTime/1000).toFixed(2)}s` : '-'}</td>
+                   <td><span className={`tag ${getStatusClass(t.status)}`}>{getStatusIcon(t.status)} {t.status}</span></td>
+                   <td>{getWorkerId(t) ? <Tooltip title={getWorkerId(t)}><span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{getWorkerId(t).substring(0, 12)}...</span></Tooltip> : '-'}</td>
+                   <td style={{ fontSize: 12 }}>{getCreatedAt(t) ? new Date(getCreatedAt(t)).toLocaleString() : '-'}</td>
+                   <td style={{ fontSize: 12 }}>{getExecTime(t) ? `${(getExecTime(t)/1000).toFixed(2)}s` : '-'}</td>
                    <td>
                      <div className="flex gap-2">
                        <button className="btn btn-sm btn-outline" onClick={() => openDetail(t)}><EyeOutlined /></button>
                        {(t.status === 'PENDING' || t.status === 'IN_PROGRESS') && (
-                         <Popconfirm title="Cancel this task?" onConfirm={() => cancelTask(t.id)}>
+                         <Popconfirm title="Cancel this task?" onConfirm={() => cancelTask(getTaskId(t))}>
                            <button className="btn btn-sm btn-outline" style={{ color: '#f56565' }}><StopOutlined /></button>
                          </Popconfirm>
                        )}
@@ -162,30 +184,31 @@ export default function Tasks() {
 
       {/* Detail Modal */}
       <Modal title="Task Details" open={detailOpen} onCancel={() => { setDetailOpen(false); setFullTask(null) }} footer={null} width={800}>
-        {detailLoading ? <div className="loading"><div className="spinner"></div></div> : (fullTask || selectedTask) && (() => {
+        {detailLoading ? <div className="loading"><div className="spinner"></div></div> : (() => {
           const t = fullTask || selectedTask
+          if (!t) return null
           return (
             <div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-                <div><label className="form-label">Task ID</label><div style={{ fontFamily: 'monospace', fontSize: 12, wordBreak: 'break-all' }}>{t.id}</div></div>
-                <div><label className="form-label">Status</label><span className={`tag ${getStatusClass(t.status)}`}>{t.status}</span></div>
+                <div><label className="form-label">Task ID</label><div style={{ fontFamily: 'monospace', fontSize: 12, wordBreak: 'break-all' }}>{getTaskId(t)}</div></div>
+                <div><label className="form-label">Status</label><span className={`tag ${getStatusClass(t.status)}`}>{getStatusIcon(t.status)} {t.status}</span></div>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginTop: 16 }}>
                 <div><label className="form-label">Endpoint</label><div>{t.endpoint || '-'}</div></div>
-                <div><label className="form-label">Worker</label><div style={{ fontFamily: 'monospace', fontSize: 12, wordBreak: 'break-all' }}>{t.workerId || '-'}</div></div>
+                <div><label className="form-label">Worker</label><div style={{ fontFamily: 'monospace', fontSize: 12, wordBreak: 'break-all' }}>{getWorkerId(t) || '-'}</div></div>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginTop: 16 }}>
-                <div><label className="form-label">Created</label><div>{t.createdAt ? new Date(t.createdAt).toLocaleString() : '-'}</div></div>
-                <div><label className="form-label">Execution Time</label><div>{t.executionTime ? `${(t.executionTime/1000).toFixed(2)}s` : '-'}</div></div>
+                <div><label className="form-label">Created</label><div>{getCreatedAt(t) ? new Date(getCreatedAt(t)).toLocaleString() : '-'}</div></div>
+                <div><label className="form-label">Execution Time</label><div>{getExecTime(t) ? `${(getExecTime(t)/1000).toFixed(2)}s` : '-'}</div></div>
               </div>
               <div style={{ marginTop: 16 }}>
                 <label className="form-label">Input</label>
-                <pre style={{ background: '#1e1e1e', color: '#d4d4d4', padding: 12, borderRadius: 6, fontSize: 12, overflow: 'auto', maxHeight: 200, whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>{t.input ? JSON.stringify(t.input, null, 2) : '-'}</pre>
+                <pre style={{ background: '#1e1e1e', color: '#d4d4d4', padding: 12, borderRadius: 6, fontSize: 12, overflow: 'auto', maxHeight: 200, whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>{t.input ? (typeof t.input === 'string' ? t.input : JSON.stringify(t.input, null, 2)) : '-'}</pre>
               </div>
               {t.output && (
                 <div style={{ marginTop: 16 }}>
                   <label className="form-label">Output</label>
-                  <pre style={{ background: '#1e1e1e', color: '#d4d4d4', padding: 12, borderRadius: 6, fontSize: 12, overflow: 'auto', maxHeight: 300, whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>{JSON.stringify(t.output, null, 2)}</pre>
+                  <pre style={{ background: '#1e1e1e', color: '#d4d4d4', padding: 12, borderRadius: 6, fontSize: 12, overflow: 'auto', maxHeight: 300, whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>{typeof t.output === 'string' ? t.output : JSON.stringify(t.output, null, 2)}</pre>
                 </div>
               )}
               {t.error && (
