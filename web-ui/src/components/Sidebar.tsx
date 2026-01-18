@@ -9,7 +9,9 @@ import {
   CloudOutlined,
   ClusterOutlined,
   AppstoreOutlined,
+  SettingOutlined,
 } from '@ant-design/icons'
+import { useUserStore } from '../store/userStore'
 
 interface SidebarProps {
   collapsed: boolean
@@ -17,16 +19,21 @@ interface SidebarProps {
 }
 
 const menuItems = [
-  { path: '/serverless', icon: <RocketOutlined />, label: 'Serverless' },
-  { path: '/endpoints', icon: <CloudServerOutlined />, label: 'Endpoints' },
-  { path: '/tasks', icon: <UnorderedListOutlined />, label: 'Tasks' },
-  { path: '/billing', icon: <WalletOutlined />, label: 'Billing' },
-  { path: '/clusters', icon: <ClusterOutlined />, label: 'Clusters' },
-  { path: '/specs', icon: <AppstoreOutlined />, label: 'Specs' },
+  { path: '/serverless', icon: <RocketOutlined />, label: 'Serverless', adminOnly: false },
+  { path: '/endpoints', icon: <CloudServerOutlined />, label: 'Endpoints', adminOnly: false },
+  { path: '/tasks', icon: <UnorderedListOutlined />, label: 'Tasks', adminOnly: false },
+  { path: '/billing', icon: <WalletOutlined />, label: 'Billing', adminOnly: false },
+  { path: '/settings', icon: <SettingOutlined />, label: 'Settings', adminOnly: false },
+  { path: '/clusters', icon: <ClusterOutlined />, label: 'Clusters', adminOnly: true },
+  { path: '/specs', icon: <AppstoreOutlined />, label: 'Specs', adminOnly: true },
 ]
 
 export default function Sidebar({ collapsed, onCollapse }: SidebarProps) {
   const location = useLocation()
+  const user = useUserStore((state) => state.user)
+  const isAdmin = user?.is_admin || false
+
+  const visibleItems = menuItems.filter(item => !item.adminOnly || isAdmin)
 
   return (
     <div className={`sidebar ${collapsed ? 'collapsed' : ''}`}>
@@ -35,7 +42,7 @@ export default function Sidebar({ collapsed, onCollapse }: SidebarProps) {
         {!collapsed && <span>Portal</span>}
       </div>
       <nav className="nav-menu">
-        {menuItems.map((item) => (
+        {visibleItems.map((item) => (
           <NavLink
             key={item.path}
             to={item.path}

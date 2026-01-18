@@ -10,6 +10,7 @@ import Billing from './pages/Billing'
 import Clusters from './pages/Clusters'
 import ClusterDetail from './pages/ClusterDetail'
 import SpecsAdmin from './pages/SpecsAdmin'
+import Settings from './pages/Settings'
 import Login from './pages/Login'
 import { useUserStore } from './store/userStore'
 import './index.css'
@@ -21,6 +22,7 @@ const pageTitles: Record<string, string> = {
   '/billing': 'Billing',
   '/clusters': 'Clusters',
   '/specs': 'Specs',
+  '/settings': 'Settings',
 }
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -65,6 +67,7 @@ function AppLayout() {
             <Route path="/clusters" element={<Clusters />} />
             <Route path="/clusters/:id" element={<ClusterDetail />} />
             <Route path="/specs" element={<SpecsAdmin />} />
+            <Route path="/settings" element={<Settings />} />
             <Route path="*" element={<Navigate to="/endpoints" replace />} />
           </Routes>
         </div>

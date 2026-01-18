@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Modal, Form, Input, InputNumber, Button, message } from 'antd'
+import { Modal, Form, Input, InputNumber, Button, message, Select } from 'antd'
 import { PlusOutlined, ThunderboltOutlined, DeleteOutlined } from '@ant-design/icons'
-import { getSpecs, createEndpoint } from '../api/client'
+import { getSpecs, createEndpoint, getRegistryCredentials, createRegistryCredential } from '../api/client'
 
 interface Spec {
   spec_name: string
@@ -17,23 +17,34 @@ interface Spec {
   total_capacity: number
 }
 
+interface Credential {
+  name: string
+  registry: string
+}
+
 export default function Serverless() {
   const navigate = useNavigate()
   const [specs, setSpecs] = useState<Spec[]>([])
+  const [credentials, setCredentials] = useState<Credential[]>([])
   const [loading, setLoading] = useState(true)
   const [modalOpen, setModalOpen] = useState(false)
+  const [credModalOpen, setCredModalOpen] = useState(false)
   const [selectedSpec, setSelectedSpec] = useState<Spec | null>(null)
   const [creating, setCreating] = useState(false)
   const [form] = Form.useForm()
+  const [credForm] = Form.useForm()
+
+  const fetchCredentials = () => getRegistryCredentials().then(res => setCredentials(res.credentials || [])).catch(() => {})
 
   useEffect(() => {
-    getSpecs()
-      .then(res => setSpecs(res.specs || []))
-      .finally(() => setLoading(false))
+    Promise.all([
+      getSpecs().then(res => setSpecs(res.specs || [])),
+      fetchCredentials()
+    ]).finally(() => setLoading(false))
   }, [])
 
   const generateRandomName = () => {
-    const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
+    const chars = 'abcdefghijklmnopqrstuvwxyz0123456789'
     return Array.from({ length: 10 }, () => chars[Math.floor(Math.random() * chars.length)]).join('')
   }
 
@@ -71,6 +82,7 @@ export default function Serverless() {
         max_replicas: values.max_replicas,
         task_timeout: values.task_timeout,
         env: Object.keys(env).length > 0 ? env : undefined,
+        registry_credential_name: values.registry_credential_name || undefined,
       })
       message.success('Endpoint created')
       setModalOpen(false)
@@ -185,10 +197,29 @@ export default function Serverless() {
 
           <Form.Item
             name="image"
-            label="Docker Image"
+            label="Container Image"
             rules={[{ required: true, message: 'Please enter docker image' }]}
+            style={{ flex: 1 }}
           >
             <Input placeholder="your-registry/your-image:tag" />
+          </Form.Item>
+
+          <Form.Item name="registry_credential_name" label="Container Registry Credential">
+            <Select
+              allowClear
+              placeholder="Select credential (optional)"
+              onChange={(val) => {
+                if (val === '__add__') {
+                  form.setFieldValue('registry_credential_name', undefined)
+                  setCredModalOpen(true)
+                }
+              }}
+            >
+              <Select.Option value="__add__"><PlusOutlined /> Add Credentials</Select.Option>
+              {credentials.map(c => (
+                <Select.Option key={c.name} value={c.name}>{c.name} ({c.registry})</Select.Option>
+              ))}
+            </Select>
           </Form.Item>
 
           <Form.Item name="spec_name" label="Hardware Spec">
@@ -229,6 +260,40 @@ export default function Serverless() {
                 </>
               )}
             </Form.List>
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      <Modal
+        title="Add Registry Credential"
+        open={credModalOpen}
+        onCancel={() => setCredModalOpen(false)}
+        onOk={() => credForm.submit()}
+        okText="Create"
+      >
+        <Form form={credForm} layout="vertical" onFinish={async (values) => {
+          try {
+            await createRegistryCredential(values)
+            message.success('Credential created')
+            setCredModalOpen(false)
+            credForm.resetFields()
+            await fetchCredentials()
+            form.setFieldValue('registry_credential_name', values.name)
+          } catch {
+            message.error('Failed to create credential')
+          }
+        }}>
+          <Form.Item name="name" label="Name" rules={[{ required: true }]}>
+            <Input placeholder="my-dockerhub" />
+          </Form.Item>
+          <Form.Item name="registry" label="Registry" initialValue="docker.io">
+            <Input placeholder="docker.io" />
+          </Form.Item>
+          <Form.Item name="username" label="Username" rules={[{ required: true }]}>
+            <Input placeholder="username" />
+          </Form.Item>
+          <Form.Item name="password" label="Password" rules={[{ required: true }]}>
+            <Input.Password placeholder="password or access token" />
           </Form.Item>
         </Form>
       </Modal>

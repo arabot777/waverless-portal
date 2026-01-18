@@ -6,6 +6,7 @@ import (
 
 	"github.com/wavespeedai/waverless-portal/internal/service"
 	"github.com/wavespeedai/waverless-portal/pkg/config"
+	"github.com/wavespeedai/waverless-portal/pkg/wavespeed"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
@@ -86,6 +87,67 @@ func AdminAuth() gin.HandlerFunc {
 			c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
 			c.Abort()
 			return
+		}
+
+		c.Next()
+	}
+}
+
+// APIKeyOrJWTAuth 支持 API Key 或 JWT 认证
+func APIKeyOrJWTAuth(userService *service.UserService) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// 先尝试 API Key (Authorization: Bearer xxx)
+		auth := c.GetHeader("Authorization")
+		if auth != "" {
+			// API Key，尝试验证
+			info, err := wavespeed.ValidateAPIKey(c.Request.Context(), auth)
+			if err == nil {
+				c.Set("user_id", info.UserID)
+				c.Set("org_id", info.OrgID)
+				c.Set("email", info.Email)
+				c.Set("auth_type", "apikey")
+				if userService != nil {
+					userService.EnsureUser(c.Request.Context(), info.UserID, info.OrgID, "", info.Email)
+				}
+				c.Next()
+				return
+			}
+		}
+
+		// 回退到 JWT 认证
+		cookieName := config.GetCookieName()
+		tokenString, _ := c.Cookie(cookieName)
+		if tokenString == "" && strings.HasPrefix(auth, "Bearer ") {
+			tokenString = strings.TrimPrefix(auth, "Bearer ")
+		}
+
+		if tokenString == "" {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+			c.Abort()
+			return
+		}
+
+		claims := &Claims{}
+		token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
+			return []byte(config.GlobalConfig.JWT.Secret), nil
+		})
+
+		if err != nil || !token.Valid {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid token"})
+			c.Abort()
+			return
+		}
+
+		c.Set("user_id", claims.UserID)
+		c.Set("org_id", claims.OrgID)
+		c.Set("email", claims.Email)
+		c.Set("user_name", claims.UserName)
+		c.Set("role", claims.Role)
+		c.Set("claims", claims)
+		c.Set("auth_type", "jwt")
+
+		if userService != nil {
+			userService.EnsureUser(c.Request.Context(), claims.UserID, claims.OrgID, claims.UserName, claims.Email)
 		}
 
 		c.Next()

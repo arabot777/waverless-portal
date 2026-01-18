@@ -62,9 +62,10 @@ type UserEndpoint struct {
 	CurrentReplicas int `gorm:"column:current_replicas;default:0" json:"current_replicas"`
 
 	// 镜像和配置
-	Image       string  `gorm:"column:image;type:varchar(500);not null" json:"image"`
-	TaskTimeout int     `gorm:"column:task_timeout;default:3600" json:"task_timeout"`
-	Env         JSONMap `gorm:"column:env;type:json" json:"env"` // 环境变量
+	Image                string  `gorm:"column:image;type:varchar(500);not null" json:"image"`
+	RegistryCredentialID *int64  `gorm:"column:registry_credential_id" json:"registry_credential_id"`
+	TaskTimeout          int     `gorm:"column:task_timeout;default:3600" json:"task_timeout"`
+	Env                  JSONMap `gorm:"column:env;type:json" json:"env"` // 环境变量
 
 	// 价格信息(创建时锁定, 单位: 1/1000000 USD)
 	PricePerHour int64  `gorm:"column:price_per_hour;type:bigint" json:"price_per_hour"`

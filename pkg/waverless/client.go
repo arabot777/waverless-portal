@@ -31,25 +31,33 @@ func NewClient(baseURL, apiKey string) *Client {
 
 // CreateEndpointRequest 创建 Endpoint 请求
 type CreateEndpointRequest struct {
-	Endpoint          string            `json:"endpoint"`
-	SpecName          string            `json:"specName"`
-	Image             string            `json:"image"`
-	Replicas          int               `json:"replicas,omitempty"`
-	TaskTimeout       int               `json:"taskTimeout,omitempty"`
-	MaxPendingTasks   int               `json:"maxPendingTasks,omitempty"`
-	ShmSize           string            `json:"shmSize,omitempty"`
-	EnablePtrace      bool              `json:"enablePtrace,omitempty"`
-	MinReplicas       int               `json:"minReplicas,omitempty"`
-	MaxReplicas       int               `json:"maxReplicas,omitempty"`
-	ScaleUpThreshold  int               `json:"scaleUpThreshold,omitempty"`
-	ScaleDownIdleTime int               `json:"scaleDownIdleTime,omitempty"`
-	ScaleUpCooldown   int               `json:"scaleUpCooldown,omitempty"`
-	ScaleDownCooldown int               `json:"scaleDownCooldown,omitempty"`
-	Priority          int               `json:"priority,omitempty"`
-	EnableDynamicPrio bool              `json:"enableDynamicPrio,omitempty"`
-	HighLoadThreshold int               `json:"highLoadThreshold,omitempty"`
-	PriorityBoost     int               `json:"priorityBoost,omitempty"`
-	Env               map[string]string `json:"env,omitempty"`
+	Endpoint           string              `json:"endpoint"`
+	SpecName           string              `json:"specName"`
+	Image              string              `json:"image"`
+	Replicas           int                 `json:"replicas,omitempty"`
+	TaskTimeout        int                 `json:"taskTimeout,omitempty"`
+	MaxPendingTasks    int                 `json:"maxPendingTasks,omitempty"`
+	ShmSize            string              `json:"shmSize,omitempty"`
+	EnablePtrace       bool                `json:"enablePtrace,omitempty"`
+	MinReplicas        int                 `json:"minReplicas,omitempty"`
+	MaxReplicas        int                 `json:"maxReplicas,omitempty"`
+	ScaleUpThreshold   int                 `json:"scaleUpThreshold,omitempty"`
+	ScaleDownIdleTime  int                 `json:"scaleDownIdleTime,omitempty"`
+	ScaleUpCooldown    int                 `json:"scaleUpCooldown,omitempty"`
+	ScaleDownCooldown  int                 `json:"scaleDownCooldown,omitempty"`
+	Priority           int                 `json:"priority,omitempty"`
+	EnableDynamicPrio  bool                `json:"enableDynamicPrio,omitempty"`
+	HighLoadThreshold  int                 `json:"highLoadThreshold,omitempty"`
+	PriorityBoost      int                 `json:"priorityBoost,omitempty"`
+	Env                map[string]string   `json:"env,omitempty"`
+	RegistryCredential *RegistryCredential `json:"registryCredential,omitempty"`
+}
+
+// RegistryCredential for private container registries
+type RegistryCredential struct {
+	Registry string `json:"registry"`
+	Username string `json:"username"`
+	Password string `json:"password"`
 }
 
 // SubmitTaskRequest 提交任务请求
@@ -89,9 +97,10 @@ func (c *Client) DeleteEndpoint(ctx context.Context, name string) error {
 }
 
 // UpdateEndpointDeployment 更新 Endpoint 部署 (replicas, image, env)
+// replicas: -1 表示不更新，>=0 表示更新为指定值
 func (c *Client) UpdateEndpointDeployment(ctx context.Context, name string, replicas int, image string, env map[string]string) error {
 	body := map[string]interface{}{}
-	if replicas > 0 {
+	if replicas >= 0 {
 		body["replicas"] = replicas
 	}
 	if image != "" {

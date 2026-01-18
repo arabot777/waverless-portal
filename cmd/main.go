@@ -62,11 +62,12 @@ func main() {
 	specRepo := mysql.NewSpecRepo(mysqlRepo.DB)
 	workerRepo := mysql.NewWorkerRepo(mysqlRepo.DB)
 	taskRepo := mysql.NewTaskRepo(mysqlRepo.DB)
+	registryCredentialRepo := mysql.NewRegistryCredentialRepo(mysqlRepo.DB)
 
 	// Services
 	userService := service.NewUserService(userRepo)
 	clusterService := service.NewClusterService(clusterRepo)
-	endpointService := service.NewEndpointService(endpointRepo, clusterRepo, specRepo, clusterService)
+	endpointService := service.NewEndpointService(endpointRepo, clusterRepo, specRepo, registryCredentialRepo, clusterService)
 	taskService := service.NewTaskService(taskRepo, endpointService, clusterService)
 	specService := service.NewSpecService(specRepo)
 	billingService := service.NewBillingService(billingRepo, userRepo, endpointRepo)
@@ -80,6 +81,7 @@ func main() {
 	webhookHandler := handler.NewWebhookHandler(billingService)
 	monitoringHandler := handler.NewMonitoringHandler(endpointService, clusterService, taskRepo, workerRepo, nil)
 	userHandler := handler.NewUserHandler(userService)
+	registryCredentialHandler := handler.NewRegistryCredentialHandler(registryCredentialRepo)
 
 	// Router
 	r := router.NewRouter(
@@ -91,6 +93,7 @@ func main() {
 		webhookHandler,
 		monitoringHandler,
 		userHandler,
+		registryCredentialHandler,
 		userService,
 	)
 

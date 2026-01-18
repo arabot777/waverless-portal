@@ -121,7 +121,7 @@ func (h *EndpointHandler) UpdateEndpoint(c *gin.Context) {
 	name := c.Param("name")
 
 	var req struct {
-		Replicas int               `json:"replicas"`
+		Replicas *int              `json:"replicas"`
 		Image    string            `json:"image"`
 		Env      map[string]string `json:"env"`
 	}
@@ -130,23 +130,27 @@ func (h *EndpointHandler) UpdateEndpoint(c *gin.Context) {
 		return
 	}
 
-	// 扩容时检查余额
-	if req.Replicas > 0 {
-		endpoint, err := h.endpointService.GetByLogicalName(c.Request.Context(), userID, name)
-		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "endpoint not found"})
-			return
-		}
-		if req.Replicas > endpoint.Replicas {
-			balance, err := wavespeed.GetOrgBalanceInternal(c.Request.Context(), orgID)
-			if err == nil && balance <= 0 {
-				c.JSON(http.StatusPaymentRequired, gin.H{"error": "insufficient balance"})
+	replicas := -1 // -1 表示不更新
+	if req.Replicas != nil {
+		replicas = *req.Replicas
+		// 扩容时检查余额
+		if replicas > 0 {
+			endpoint, err := h.endpointService.GetByLogicalName(c.Request.Context(), userID, name)
+			if err != nil {
+				c.JSON(http.StatusNotFound, gin.H{"error": "endpoint not found"})
 				return
+			}
+			if replicas > endpoint.Replicas {
+				balance, err := wavespeed.GetOrgBalanceInternal(c.Request.Context(), orgID)
+				if err == nil && balance <= 0 {
+					c.JSON(http.StatusPaymentRequired, gin.H{"error": "insufficient balance"})
+					return
+				}
 			}
 		}
 	}
 
-	if err := h.endpointService.UpdateDeployment(c.Request.Context(), userID, name, req.Replicas, req.Image, req.Env); err != nil {
+	if err := h.endpointService.UpdateDeployment(c.Request.Context(), userID, name, replicas, req.Image, req.Env); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}

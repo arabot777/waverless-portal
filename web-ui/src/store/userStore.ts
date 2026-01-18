@@ -9,6 +9,7 @@ interface User {
   avatar_url: string
   role: string
   user_type: string
+  is_admin: boolean
   permissions: string[]
   balance: number
 }

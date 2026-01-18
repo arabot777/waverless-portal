@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { message, Popconfirm, Modal, Form, Input, InputNumber, Select, Switch, Collapse, Drawer, Tabs, Tooltip, Timeline } from 'antd'
+import { message, Popconfirm, Modal, Form, Input, InputNumber, Select, Collapse, Drawer, Tabs, Tooltip, Timeline } from 'antd'
 import { ArrowLeftOutlined, DeleteOutlined, ReloadOutlined, EditOutlined, PlayCircleOutlined, CopyOutlined, PlusOutlined, SyncOutlined, SearchOutlined, EyeOutlined, StopOutlined, QuestionCircleOutlined } from '@ant-design/icons'
 import * as echarts from 'echarts'
-import { getEndpoint, getEndpointWorkers, getWorkerLogs, getEndpointMetrics, getEndpointStats, updateEndpoint, updateEndpointConfig, deleteEndpoint, submitTask, getTaskStatus, getEndpointTasks, cancelTask, getTaskTimeline, getTaskExecutionHistory, getScalingHistory, getEndpointStatistics } from '../api/client'
+import { getEndpoint, getEndpointWorkers, getWorkerLogs, getEndpointMetrics, getEndpointStats, updateEndpoint, updateEndpointConfig, deleteEndpoint, submitTask, getTaskStatus, getEndpointTasks, cancelTask, getTaskTimeline, getTaskExecutionHistory, getEndpointStatistics } from '../api/client'
 import Terminal from '../components/Terminal'
 
-type TabKey = 'overview' | 'metrics' | 'workers' | 'tasks' | 'scaling' | 'settings'
+type TabKey = 'overview' | 'metrics' | 'workers' | 'tasks' | 'settings'
 
 const FIELD_TIPS: Record<string, string> = {
   priority: 'Higher numbers get resources first. Default 50.',
@@ -189,14 +189,14 @@ export default function EndpointDetail() {
       </div>
 
       {/* Meta */}
-      <div style={{ fontSize: 13, color: '#6b7280', marginBottom: 12 }}>
+      <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 12 }}>
         {ep.specName} • {ep.cluster_id || '-'} • ${(ep.price_per_hour || 0).toFixed(2)}/hr • Created {ep.createdAt ? new Date(ep.createdAt).toLocaleDateString() : '-'}
       </div>
 
       {/* Stats */}
       <div className="stats-grid mb-4" style={{ gridTemplateColumns: 'repeat(5, 1fr)' }}>
-        <div className="stat-card"><div className="stat-content"><div className="stat-label">Workers</div><div className="stat-value" style={{ color: '#3b82f6' }}><span style={{ fontSize: 28 }}>{taskStats?.busyWorkers || 0}</span><span style={{ fontSize: 14, color: '#6b7280' }}> / {taskStats?.onlineWorkers || workers.length}</span></div></div></div>
-        <div className="stat-card"><div className="stat-content"><div className="stat-label">Replicas</div><div className="stat-value" style={{ color: '#10b981' }}><span style={{ fontSize: 28 }}>{ep.readyReplicas || 0}</span><span style={{ fontSize: 14, color: '#6b7280' }}> / {ep.replicas || 0}</span></div></div></div>
+        <div className="stat-card"><div className="stat-content"><div className="stat-label">Workers</div><div className="stat-value" style={{ color: '#3b82f6' }}><span style={{ fontSize: 28 }}>{taskStats?.busyWorkers || 0}</span><span style={{ fontSize: 14, color: 'var(--text-secondary)' }}> / {taskStats?.onlineWorkers || workers.length}</span></div></div></div>
+        <div className="stat-card"><div className="stat-content"><div className="stat-label">Replicas</div><div className="stat-value" style={{ color: '#10b981' }}><span style={{ fontSize: 28 }}>{ep.readyReplicas || 0}</span><span style={{ fontSize: 14, color: 'var(--text-secondary)' }}> / {ep.replicas || 0}</span></div></div></div>
         <div className="stat-card"><div className="stat-content"><div className="stat-label">Running</div><div className="stat-value" style={{ color: '#3b82f6', fontSize: 28 }}>{taskStats?.runningTasks || 0}</div></div></div>
         <div className="stat-card"><div className="stat-content"><div className="stat-label">Pending</div><div className="stat-value" style={{ color: '#f59e0b', fontSize: 28 }}>{taskStats?.pendingTasks || 0}</div></div></div>
         <div className="stat-card"><div className="stat-content"><div className="stat-label">Total</div><div className="stat-value" style={{ fontSize: 28 }}>{(taskStats?.pendingTasks || 0) + (taskStats?.runningTasks || 0) + (taskStats?.completedTasks || 0) + (taskStats?.failedTasks || 0)}</div></div></div>
@@ -204,9 +204,9 @@ export default function EndpointDetail() {
 
       {/* Tabs */}
       <div className="tabs mb-4">
-        {(['overview', 'metrics', 'workers', 'tasks', 'scaling', 'settings'] as TabKey[]).map(t => (
+        {(['overview', 'metrics', 'workers', 'tasks', 'settings'] as TabKey[]).map(t => (
           <div key={t} className={`tab ${activeTab === t ? 'active' : ''}`} onClick={() => setActiveTab(t)}>
-            {t === 'scaling' ? 'Scaling History' : t.charAt(0).toUpperCase() + t.slice(1)}
+            {t.charAt(0).toUpperCase() + t.slice(1)}
           </div>
         ))}
       </div>
@@ -216,7 +216,6 @@ export default function EndpointDetail() {
       {activeTab === 'metrics' && <MetricsTab name={name!} />}
       {activeTab === 'workers' && <WorkersTab workers={workers} endpointName={name!} />}
       {activeTab === 'tasks' && <TasksTab endpointName={name!} />}
-      {activeTab === 'scaling' && <ScalingHistoryTab endpointName={name!} />}
       {activeTab === 'settings' && <SettingsTab endpoint={ep} onRefresh={fetchData} />}
 
       {/* Edit Modal */}
@@ -262,16 +261,19 @@ function OverviewTab({ endpoint, taskStats }: { endpoint: EndpointData; taskStat
   }
 
   const getCodeExample = () => {
+    const authHeader = '-H "Authorization: Bearer WAVESPEED_API_KEY"'
     if (codeLang === 'curl') {
-      if (apiMethod === 'status') return `curl -X GET ${apiUrl}/v1/status/${taskId || 'TASK_ID'}`
-      return `curl -X POST ${apiUrl}/v1/${ep}/${apiMethod} \\\n  -H "Content-Type: application/json" \\\n  -d '{"input": ${inputJson}}'`
+      if (apiMethod === 'status') return `curl -X GET ${apiUrl}/v1/status/${taskId || 'TASK_ID'} \\\n  ${authHeader}`
+      return `curl -X POST ${apiUrl}/v1/${ep}/${apiMethod} \\\n  ${authHeader} \\\n  -H "Content-Type: application/json" \\\n  -d '{"input": ${inputJson}}'`
     }
     if (codeLang === 'python') {
-      if (apiMethod === 'status') return `import requests\n\nres = requests.get("${apiUrl}/v1/status/${taskId || 'TASK_ID'}")\nprint(res.json())`
-      return `import requests\n\nres = requests.post(\n    "${apiUrl}/v1/${ep}/${apiMethod}",\n    json={"input": ${inputJson}}\n)\nprint(res.json())`
+      const headers = 'headers = {"Authorization": "Bearer WAVESPEED_API_KEY"}'
+      if (apiMethod === 'status') return `import requests\n\n${headers}\nres = requests.get("${apiUrl}/v1/status/${taskId || 'TASK_ID'}", headers=headers)\nprint(res.json())`
+      return `import requests\n\n${headers}\nres = requests.post(\n    "${apiUrl}/v1/${ep}/${apiMethod}",\n    headers=headers,\n    json={"input": ${inputJson}}\n)\nprint(res.json())`
     }
-    if (apiMethod === 'status') return `const res = await fetch("${apiUrl}/v1/status/${taskId || 'TASK_ID'}");\nconsole.log(await res.json());`
-    return `const res = await fetch("${apiUrl}/v1/${ep}/${apiMethod}", {\n  method: "POST",\n  headers: { "Content-Type": "application/json" },\n  body: JSON.stringify({ input: ${inputJson} })\n});\nconsole.log(await res.json());`
+    const jsHeaders = '  headers: {\n    "Authorization": "Bearer WAVESPEED_API_KEY",\n    "Content-Type": "application/json"\n  },'
+    if (apiMethod === 'status') return `const res = await fetch("${apiUrl}/v1/status/${taskId || 'TASK_ID'}", {\n  headers: { "Authorization": "Bearer YOUR_API_KEY" }\n});\nconsole.log(await res.json());`
+    return `const res = await fetch("${apiUrl}/v1/${ep}/${apiMethod}", {\n  method: "POST",\n${jsHeaders}\n  body: JSON.stringify({ input: ${inputJson} })\n});\nconsole.log(await res.json());`
   }
 
   const copyCode = () => { navigator.clipboard.writeText(getCodeExample()); message.success('Copied!') }
@@ -292,30 +294,32 @@ function OverviewTab({ endpoint, taskStats }: { endpoint: EndpointData; taskStat
                   </button>
                 ))}
               </div>
-              {apiMethod !== 'status' ? (
-                <div className="form-group mb-3">
-                  <label className="form-label">Input JSON</label>
-                  <textarea className="form-input" rows={4} value={inputJson} onChange={e => setInputJson(e.target.value)} style={{ fontFamily: 'monospace', fontSize: 12 }} />
-                </div>
-              ) : (
-                <div className="form-group mb-3">
-                  <label className="form-label">Task ID</label>
-                  <Input value={taskId} onChange={e => setTaskId(e.target.value)} placeholder="Enter task ID" />
-                </div>
-              )}
+              <div className="form-group mb-3" style={{ minHeight: 110 }}>
+                {apiMethod !== 'status' ? (
+                  <>
+                    <label className="form-label">Input JSON</label>
+                    <textarea className="form-input" rows={4} value={inputJson} onChange={e => setInputJson(e.target.value)} style={{ fontFamily: 'monospace', fontSize: 12 }} />
+                  </>
+                ) : (
+                  <>
+                    <label className="form-label">Task ID</label>
+                    <Input value={taskId} onChange={e => setTaskId(e.target.value)} placeholder="Enter task ID" />
+                  </>
+                )}
+              </div>
               <button className="btn btn-blue" onClick={handleSubmit} disabled={loading}>
                 <PlayCircleOutlined /> {loading ? 'Loading...' : apiMethod === 'status' ? 'Query' : 'Submit'}
               </button>
-              {result && <pre style={{ marginTop: 12, background: '#1f2937', color: 'var(--border-color)', padding: 10, borderRadius: 6, fontSize: 11, maxHeight: 120, overflow: 'auto' }}>{result}</pre>}
+              {result && <pre style={{ marginTop: 12, background: '#1f2937', color: '#e5e7eb', padding: 10, borderRadius: 6, fontSize: 11, maxHeight: 120, overflow: 'auto' }}>{result}</pre>}
             </div>
-            <div>
+            <div style={{ minWidth: 0 }}>
               <div className="flex gap-2 mb-2">
                 {(['curl', 'python', 'js'] as const).map(l => (
                   <span key={l} className={`code-tab ${codeLang === l ? 'active' : ''}`} onClick={() => setCodeLang(l)}>{l}</span>
                 ))}
                 <button className="btn btn-outline btn-sm" style={{ marginLeft: 'auto', fontSize: 11 }} onClick={copyCode}><CopyOutlined /> Copy</button>
               </div>
-              <pre style={{ background: '#1f2937', color: 'var(--border-color)', padding: 12, borderRadius: 6, fontSize: 11, overflow: 'auto', height: 180 }}>{getCodeExample()}</pre>
+              <pre style={{ background: '#1f2937', color: '#e5e7eb', padding: 12, borderRadius: 6, fontSize: 11, overflow: 'auto', height: 180, whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>{getCodeExample()}</pre>
             </div>
           </div>
         ),
@@ -359,7 +363,7 @@ function OverviewTab({ endpoint, taskStats }: { endpoint: EndpointData; taskStat
         <div className="card-header"><h3>AutoScaler Configuration</h3></div>
         <table className="info-table"><tbody>
           <tr><td className="info-label">AutoScaler</td><td colSpan={3}><span className={`tag ${endpoint.autoscalerEnabled === 'enabled' ? 'running' : endpoint.autoscalerEnabled === 'disabled' ? 'failed' : 'pending'}`}>{endpoint.autoscalerEnabled === 'enabled' ? 'Force On' : endpoint.autoscalerEnabled === 'disabled' ? 'Force Off' : 'Default'}</span></td></tr>
-          <tr><td className="info-label">Priority<TipIcon tip={FIELD_TIPS.priority} /></td><td>{endpoint.priority || 50}</td><td className="info-label">Min Replicas</td><td>{endpoint.minReplicas || 0}{endpoint.minReplicas === 0 && <span style={{ color: '#6b7280', fontSize: 11, marginLeft: 4 }}>(scale-to-zero)</span>}</td></tr>
+          <tr><td className="info-label">Priority<TipIcon tip={FIELD_TIPS.priority} /></td><td>{endpoint.priority || 50}</td><td className="info-label">Min Replicas</td><td>{endpoint.minReplicas || 0}{endpoint.minReplicas === 0 && <span style={{ color: 'var(--text-secondary)', fontSize: 11, marginLeft: 4 }}>(scale-to-zero)</span>}</td></tr>
           <tr><td className="info-label">Max Replicas</td><td>{endpoint.maxReplicas || 10}</td><td className="info-label">Scale Up Threshold<TipIcon tip={FIELD_TIPS.scaleUpThreshold} /></td><td>{endpoint.scaleUpThreshold || 1}</td></tr>
           <tr><td className="info-label">Scale Down Idle<TipIcon tip={FIELD_TIPS.scaleDownIdleTime} /></td><td>{endpoint.scaleDownIdleTime || 300}s</td><td className="info-label">Scale Up Cooldown<TipIcon tip={FIELD_TIPS.scaleUpCooldown} /></td><td>{endpoint.scaleUpCooldown || 60}s</td></tr>
           <tr><td className="info-label">Scale Down Cooldown<TipIcon tip={FIELD_TIPS.scaleDownCooldown} /></td><td>{endpoint.scaleDownCooldown || 120}s</td><td className="info-label">Dynamic Priority</td><td>{endpoint.enableDynamicPrio ? 'Enabled' : 'Disabled'}</td></tr>
@@ -457,7 +461,7 @@ function MetricsTab({ name }: { name: string }) {
   }, [name, timeRange, liveMode])
 
   const grid = useMemo(() => ({ left: 50, right: 20, top: 20, bottom: 50 }), [])
-  const axisLabel = useMemo(() => ({ fontSize: 11, color: '#6b7280' }), [])
+  const axisLabel = useMemo(() => ({ fontSize: 11, color: 'var(--text-secondary)' }), [])
   const dataZoom = useMemo(() => [{ type: 'inside', start: 0, end: 100 }, { type: 'slider', start: 0, end: 100, height: 20, bottom: 5 }], [])
 
   const { totals, avgValues } = useMemo(() => {
@@ -535,7 +539,7 @@ function MetricsTab({ name }: { name: string }) {
               </div>
             )}
           </div>
-          <span style={{ fontSize: 14, color: '#6b7280' }}>Granularity: <strong>{granularity === '1m' ? 'Minute' : granularity === '1h' ? 'Hourly' : 'Daily'}</strong></span>
+          <span style={{ fontSize: 14, color: 'var(--text-secondary)' }}>Granularity: <strong>{granularity === '1m' ? 'Minute' : granularity === '1h' ? 'Hourly' : 'Daily'}</strong></span>
         </div>
         <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, color: 'var(--text-primary)', cursor: 'pointer' }}>
           <input type="checkbox" checked={liveMode} onChange={(e) => setLiveMode(e.target.checked)} style={{ width: 16, height: 16, cursor: 'pointer' }} />
@@ -568,7 +572,7 @@ function WorkersTab({ workers, endpointName }: { workers: Worker[]; endpointName
   const [selectedTask, setSelectedTask] = useState<Task | null>(null)
   const [taskDetailOpen, setTaskDetailOpen] = useState(false)
 
-  const sortedWorkers = [...workers].sort((a, b) => (a.id || '').localeCompare(b.id || ''))
+  const sortedWorkers = [...workers].sort((a, b) => String(a.id || '').localeCompare(String(b.id || '')))
   const active = sortedWorkers.filter(w => w.current_jobs > 0).length
 
   const formatTime = (t: string) => {
@@ -579,7 +583,7 @@ function WorkersTab({ workers, endpointName }: { workers: Worker[]; endpointName
 
   const getIdleTag = (w: Worker) => {
     if (w.current_jobs > 0) return <span className="tag running">Active</span>
-    if (!w.last_task_time) return <span className="tag" style={{ background: 'rgba(107,114,128,0.1)', color: '#6b7280' }}>New</span>
+    if (!w.last_task_time) return <span className="tag" style={{ background: 'rgba(107,114,128,0.1)', color: 'var(--text-secondary)' }}>New</span>
     const m = Math.floor((Date.now() - new Date(w.last_task_time).getTime()) / 60000)
     if (m < 5) return <span className="tag success">{m}m idle</span>
     if (m < 30) return <span className="tag pending">{m}m idle</span>
@@ -627,7 +631,7 @@ function WorkersTab({ workers, endpointName }: { workers: Worker[]; endpointName
           {getIdleTag(w)}
         </div>
       ))}
-      {sortedWorkers.length === 0 && <div className="card" style={{ padding: 40, textAlign: 'center', color: '#6b7280' }}>No workers</div>}
+      {sortedWorkers.length === 0 && <div className="card" style={{ padding: 40, textAlign: 'center', color: 'var(--text-secondary)' }}>No workers</div>}
 
       <Drawer title={`Worker: ${selectedWorker?.pod_name || selectedWorker?.worker_id || '-'}`} open={drawerOpen} width="70%" onClose={() => setDrawerOpen(false)}>
         <Tabs activeKey={drawerTab} onChange={setDrawerTab} items={[
@@ -646,7 +650,7 @@ function WorkersTab({ workers, endpointName }: { workers: Worker[]; endpointName
                         <td><button className="btn btn-sm btn-outline" onClick={(e) => { e.stopPropagation(); setSelectedTask(t); setTaskDetailOpen(true) }}><EyeOutlined /> View</button></td>
                       </tr>
                     ))}
-                    {tasks.length === 0 && <tr><td colSpan={6} style={{ textAlign: 'center', color: '#6b7280', padding: 20 }}>No tasks</td></tr>}
+                    {tasks.length === 0 && <tr><td colSpan={6} style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: 20 }}>No tasks</td></tr>}
                   </tbody>
                 </table>
               )}
@@ -655,7 +659,7 @@ function WorkersTab({ workers, endpointName }: { workers: Worker[]; endpointName
           { key: 'logs', label: '📄 Logs', children: (
             <div>
               <button className="btn btn-outline mb-3" onClick={() => { if (selectedWorker?.pod_name) { setLoadingLogs(true); getWorkerLogs(endpointName, selectedWorker.pod_name).then(setLogs).finally(() => setLoadingLogs(false)) } }}><SyncOutlined spin={loadingLogs} /> Refresh</button>
-              <pre style={{ background: '#1f2937', color: 'var(--border-color)', padding: 16, borderRadius: 8, fontSize: 12, maxHeight: 500, overflow: 'auto' }}>{logs || 'No logs'}</pre>
+              <pre style={{ background: '#1f2937', color: '#e5e7eb', padding: 16, borderRadius: 8, fontSize: 12, maxHeight: 500, overflow: 'auto' }}>{logs || 'No logs'}</pre>
             </div>
           )},
           { key: 'exec', label: '💻 Exec', children: selectedWorker ? (
@@ -724,7 +728,7 @@ function TasksTab({ endpointName }: { endpointName: string }) {
           <button className="btn btn-blue" onClick={handleSearch}><SearchOutlined /> Search</button>
           <button className="btn btn-outline" onClick={() => { setSearchInput(''); setStatusInput('all'); setSearch(''); setStatusFilter('all'); setPage(0) }}>Reset</button>
         </div>
-        <span style={{ color: '#6b7280', fontSize: 13 }}>Total: {total}</span>
+        <span style={{ color: 'var(--text-secondary)', fontSize: 13 }}>Total: {total}</span>
       </div>
 
       <div className="card">
@@ -733,12 +737,12 @@ function TasksTab({ endpointName }: { endpointName: string }) {
             <thead><tr><th>Task ID</th><th>Status</th><th>Worker</th><th>Created</th><th>Exec Time</th><th>Delay</th><th>Actions</th></tr></thead>
             <tbody>
               {loading ? <tr><td colSpan={7}><div className="loading"><div className="spinner"></div></div></td></tr> :
-               tasks.length === 0 ? <tr><td colSpan={7} style={{ textAlign: 'center', color: '#6b7280', padding: 40 }}>No tasks</td></tr> :
+               tasks.length === 0 ? <tr><td colSpan={7} style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: 40 }}>No tasks</td></tr> :
                tasks.map((t: Task) => (
                  <tr key={t.id}>
                    <td><Tooltip title={t.id}><span style={{ fontFamily: 'monospace', fontSize: 11 }}>{t.id.substring(0, 20)}...</span></Tooltip></td>
                    <td><span className={`tag ${getStatusClass(t.status)}`}>{t.status}</span></td>
-                   <td>{t.workerId ? <Tooltip title={t.workerId}><span style={{ fontSize: 12, color: '#6b7280' }}>{t.workerId.substring(0, 12)}...</span></Tooltip> : '-'}</td>
+                   <td>{t.workerId ? <Tooltip title={t.workerId}><span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{t.workerId.substring(0, 12)}...</span></Tooltip> : '-'}</td>
                    <td style={{ fontSize: 12 }}>{t.createdAt ? new Date(t.createdAt).toLocaleString() : '-'}</td>
                    <td style={{ fontSize: 12 }}>{t.executionTime ? `${(t.executionTime/1000).toFixed(2)}s` : '-'}</td>
                    <td style={{ fontSize: 12 }}>{t.delayTime ? `${(t.delayTime/1000).toFixed(2)}s` : '-'}</td>
@@ -759,14 +763,14 @@ function TasksTab({ endpointName }: { endpointName: string }) {
         </div>
         <div className="flex justify-between items-center" style={{ padding: '12px 16px', borderTop: '1px solid var(--bg-hover)' }}>
           <div className="flex gap-2 items-center">
-            <span style={{ fontSize: 13, color: '#6b7280' }}>Show</span>
+            <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Show</span>
             <Select value={pageSize} onChange={v => { setPageSize(v); setPage(0) }} size="small" style={{ width: 70 }} options={[
               { value: 10, label: '10' }, { value: 20, label: '20' }, { value: 50, label: '50' }, { value: 100, label: '100' },
             ]} />
-            <span style={{ fontSize: 13, color: '#6b7280' }}>/ page • Total: {total}</span>
+            <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>/ page • Total: {total}</span>
           </div>
           <div className="flex gap-2 items-center">
-            <span style={{ fontSize: 13, color: '#6b7280' }}>Page {page + 1} of {Math.ceil(total / pageSize) || 1}</span>
+            <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Page {page + 1} of {Math.ceil(total / pageSize) || 1}</span>
             <button className="btn btn-sm btn-outline" disabled={page === 0} onClick={() => setPage(p => p - 1)}>Prev</button>
             <button className="btn btn-sm btn-outline" disabled={(page + 1) * pageSize >= total} onClick={() => setPage(p => p + 1)}>Next</button>
           </div>
@@ -849,8 +853,8 @@ function TaskDetailContent({ task }: { task: Task }) {
             color: e.to_status === 'COMPLETED' ? 'green' : e.to_status === 'FAILED' ? 'red' : e.to_status === 'IN_PROGRESS' ? 'blue' : 'gray',
             children: (
               <div>
-                <div><strong>{e.event_type}</strong>{e.from_status && e.to_status && <span style={{ color: '#6b7280' }}> ({e.from_status} → {e.to_status})</span>}</div>
-                <div style={{ fontSize: 12, color: '#6b7280' }}>{new Date(e.event_time).toLocaleString()}</div>
+                <div><strong>{e.event_type}</strong>{e.from_status && e.to_status && <span style={{ color: 'var(--text-secondary)' }}> ({e.from_status} → {e.to_status})</span>}</div>
+                <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{new Date(e.event_time).toLocaleString()}</div>
                 {e.worker_id && <div style={{ fontSize: 11 }}><code>Worker: {e.worker_id.substring(0, 20)}...</code></div>}
                 {e.worker_pod_name && <div style={{ fontSize: 11 }}><code>Pod: {e.worker_pod_name}</code></div>}
                 {e.error_message && <div style={{ fontSize: 12, color: '#f56565' }}>{e.error_message}</div>}
@@ -865,7 +869,7 @@ function TaskDetailContent({ task }: { task: Task }) {
           <label className="form-label">Execution History</label>
           <div style={{ background: 'var(--bg-primary)', padding: 12, borderRadius: 6, marginTop: 8 }}>
             <table style={{ width: '100%', fontSize: 12 }}>
-              <thead><tr style={{ color: '#6b7280' }}><th style={{ textAlign: 'left', padding: 4 }}>Worker</th><th style={{ textAlign: 'left', padding: 4 }}>Start</th><th style={{ textAlign: 'left', padding: 4 }}>End</th><th style={{ textAlign: 'left', padding: 4 }}>Duration</th></tr></thead>
+              <thead><tr style={{ color: 'var(--text-secondary)' }}><th style={{ textAlign: 'left', padding: 4 }}>Worker</th><th style={{ textAlign: 'left', padding: 4 }}>Start</th><th style={{ textAlign: 'left', padding: 4 }}>End</th><th style={{ textAlign: 'left', padding: 4 }}>Duration</th></tr></thead>
               <tbody>
                 {execHistory.history.map((h: any, i: number) => (
                   <tr key={i}>
@@ -884,51 +888,55 @@ function TaskDetailContent({ task }: { task: Task }) {
   )
 }
 
-function ScalingHistoryTab({ endpointName }: { endpointName: string }) {
-  const [history, setHistory] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    getScalingHistory(endpointName, 50)
-      .then(data => setHistory(data || []))
-      .catch(() => setHistory([]))
-      .finally(() => setLoading(false))
-  }, [endpointName])
-
-  if (loading) return <div className="loading"><div className="spinner"></div></div>
-  if (!history?.length) return <div className="empty-state"><p>No scaling events</p></div>
-
-  return (
-    <div className="card">
-      <div className="table-container">
-        <table>
-          <thead>
-            <tr><th>Time</th><th>Action</th><th>Replicas</th><th>Reason</th><th>Queue</th><th>Priority</th></tr>
-          </thead>
-          <tbody>
-            {history.map((e: any) => (
-              <tr key={e.id || e.timestamp}>
-                <td style={{ fontSize: 12, color: '#6b7280' }}>{new Date(e.timestamp).toLocaleString()}</td>
-                <td><span className={`tag ${e.action === 'scale_up' ? 'running' : 'stopped'}`}>{e.action === 'scale_up' ? '↑ Scale Up' : '↓ Scale Down'}</span></td>
-                <td>{e.fromReplicas} → {e.toReplicas}</td>
-                <td style={{ maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis' }}>{e.reason}</td>
-                <td>{e.queueLength}</td>
-                <td>{e.priority}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  )
-}
-
 function SettingsTab({ endpoint, onRefresh }: { endpoint: EndpointData; onRefresh: () => void }) {
   return (
-    <Collapse defaultActiveKey={['scaling']} accordion items={[
+    <Collapse defaultActiveKey={['base']} accordion items={[
+      { key: 'base', label: '⚙️ Base Configuration', children: <BaseConfigPanel endpoint={endpoint} onRefresh={onRefresh} /> },
       { key: 'scaling', label: '⚡ Scaling Configuration', children: <ScalingPanel endpoint={endpoint} onRefresh={onRefresh} /> },
       { key: 'env', label: '🔧 Environment Variables', children: <EnvVarsPanel endpoint={endpoint} onRefresh={onRefresh} /> },
     ]} />
+  )
+}
+
+function BaseConfigPanel({ endpoint, onRefresh }: { endpoint: EndpointData; onRefresh: () => void }) {
+  const [form] = Form.useForm()
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    form.setFieldsValue({
+      replicas: endpoint.replicas || 0,
+      image: endpoint.image || '',
+      taskTimeout: endpoint.taskTimeout || 3600,
+    })
+  }, [endpoint, form])
+
+  const handleSave = async () => {
+    setSaving(true)
+    try {
+      const values = form.getFieldsValue()
+      await updateEndpoint(endpoint.logical_name!, {
+        replicas: values.replicas,
+        image: values.image,
+      })
+      if (values.taskTimeout !== endpoint.taskTimeout) {
+        await updateEndpointConfig(endpoint.logical_name!, { taskTimeout: values.taskTimeout })
+      }
+      message.success('Saved')
+      onRefresh()
+    } catch { message.error('Failed to save') }
+    finally { setSaving(false) }
+  }
+
+  return (
+    <Form form={form} layout="vertical">
+      <div className="form-row">
+        <Form.Item name="replicas" label="Replicas"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item>
+        <Form.Item label="Spec"><Input value={endpoint.specName} disabled /></Form.Item>
+      </div>
+      <Form.Item name="image" label="Image"><Input /></Form.Item>
+      <Form.Item name="taskTimeout" label="Task Timeout (seconds)"><InputNumber min={1} style={{ width: '100%' }} /></Form.Item>
+      <button type="button" className="btn btn-blue" onClick={handleSave} disabled={saving}>{saving ? 'Saving...' : 'Save'}</button>
+    </Form>
   )
 }
 
@@ -940,16 +948,6 @@ function ScalingPanel({ endpoint, onRefresh }: { endpoint: EndpointData; onRefre
     form.setFieldsValue({
       minReplicas: endpoint.minReplicas || 0,
       maxReplicas: endpoint.maxReplicas || 10,
-      taskTimeout: endpoint.taskTimeout || 3600,
-      scaleUpThreshold: endpoint.scaleUpThreshold || 1,
-      scaleDownIdleTime: endpoint.scaleDownIdleTime || 300,
-      scaleUpCooldown: endpoint.scaleUpCooldown || 60,
-      scaleDownCooldown: endpoint.scaleDownCooldown || 120,
-      priority: endpoint.priority || 50,
-      enableDynamicPrio: endpoint.enableDynamicPrio || false,
-      highLoadThreshold: endpoint.highLoadThreshold || 10,
-      priorityBoost: endpoint.priorityBoost || 20,
-      autoscalerEnabled: endpoint.autoscalerEnabled || '',
     })
   }, [endpoint, form])
 
@@ -965,30 +963,10 @@ function ScalingPanel({ endpoint, onRefresh }: { endpoint: EndpointData; onRefre
 
   return (
     <Form form={form} layout="vertical">
-      <Form.Item name="autoscalerEnabled" label="AutoScaler Override">
-        <Select options={[{ value: '', label: 'Default' }, { value: 'enabled', label: 'Force On' }, { value: 'disabled', label: 'Force Off' }]} />
-      </Form.Item>
       <div className="form-row">
         <Form.Item name="minReplicas" label="Min Replicas"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item>
         <Form.Item name="maxReplicas" label="Max Replicas"><InputNumber min={1} style={{ width: '100%' }} /></Form.Item>
       </div>
-      <div className="form-row">
-        <Form.Item name="scaleUpThreshold" label={<>Scale Up Threshold<TipIcon tip={FIELD_TIPS.scaleUpThreshold} /></>}><InputNumber min={1} style={{ width: '100%' }} /></Form.Item>
-        <Form.Item name="scaleDownIdleTime" label={<>Scale Down Idle (s)<TipIcon tip={FIELD_TIPS.scaleDownIdleTime} /></>}><InputNumber min={0} style={{ width: '100%' }} /></Form.Item>
-      </div>
-      <div className="form-row">
-        <Form.Item name="scaleUpCooldown" label={<>Scale Up Cooldown (s)<TipIcon tip={FIELD_TIPS.scaleUpCooldown} /></>}><InputNumber min={0} style={{ width: '100%' }} /></Form.Item>
-        <Form.Item name="scaleDownCooldown" label={<>Scale Down Cooldown (s)<TipIcon tip={FIELD_TIPS.scaleDownCooldown} /></>}><InputNumber min={0} style={{ width: '100%' }} /></Form.Item>
-      </div>
-      <div className="form-row">
-        <Form.Item name="priority" label={<>Priority (0-100)<TipIcon tip={FIELD_TIPS.priority} /></>}><InputNumber min={0} max={100} style={{ width: '100%' }} /></Form.Item>
-        <Form.Item name="enableDynamicPrio" label="Dynamic Priority" valuePropName="checked"><Switch /></Form.Item>
-      </div>
-      <div className="form-row">
-        <Form.Item name="highLoadThreshold" label={<>High Load Threshold<TipIcon tip={FIELD_TIPS.highLoadThreshold} /></>}><InputNumber min={1} style={{ width: '100%' }} /></Form.Item>
-        <Form.Item name="priorityBoost" label={<>Priority Boost<TipIcon tip={FIELD_TIPS.priorityBoost} /></>}><InputNumber min={0} max={100} style={{ width: '100%' }} /></Form.Item>
-      </div>
-      <Form.Item name="taskTimeout" label="Task Timeout (seconds)"><InputNumber min={1} style={{ width: '100%' }} /></Form.Item>
       <button type="button" className="btn btn-blue" onClick={handleSave} disabled={saving}>{saving ? 'Saving...' : 'Save'}</button>
     </Form>
   )

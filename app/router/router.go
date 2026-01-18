@@ -9,15 +9,16 @@ import (
 )
 
 type Router struct {
-	specHandler       *handler.SpecHandler
-	endpointHandler   *handler.EndpointHandler
-	taskHandler       *handler.TaskHandler
-	billingHandler    *handler.BillingHandler
-	clusterHandler    *handler.ClusterHandler
-	webhookHandler    *handler.WebhookHandler
-	monitoringHandler *handler.MonitoringHandler
-	userHandler       *handler.UserHandler
-	userService       *service.UserService
+	specHandler               *handler.SpecHandler
+	endpointHandler           *handler.EndpointHandler
+	taskHandler               *handler.TaskHandler
+	billingHandler            *handler.BillingHandler
+	clusterHandler            *handler.ClusterHandler
+	webhookHandler            *handler.WebhookHandler
+	monitoringHandler         *handler.MonitoringHandler
+	userHandler               *handler.UserHandler
+	registryCredentialHandler *handler.RegistryCredentialHandler
+	userService               *service.UserService
 }
 
 func NewRouter(
@@ -29,18 +30,20 @@ func NewRouter(
 	webhookHandler *handler.WebhookHandler,
 	monitoringHandler *handler.MonitoringHandler,
 	userHandler *handler.UserHandler,
+	registryCredentialHandler *handler.RegistryCredentialHandler,
 	userService *service.UserService,
 ) *Router {
 	return &Router{
-		specHandler:       specHandler,
-		endpointHandler:   endpointHandler,
-		taskHandler:       taskHandler,
-		billingHandler:    billingHandler,
-		clusterHandler:    clusterHandler,
-		webhookHandler:    webhookHandler,
-		monitoringHandler: monitoringHandler,
-		userHandler:       userHandler,
-		userService:       userService,
+		specHandler:               specHandler,
+		endpointHandler:           endpointHandler,
+		taskHandler:               taskHandler,
+		billingHandler:            billingHandler,
+		clusterHandler:            clusterHandler,
+		webhookHandler:            webhookHandler,
+		monitoringHandler:         monitoringHandler,
+		userHandler:               userHandler,
+		registryCredentialHandler: registryCredentialHandler,
+		userService:               userService,
 	}
 }
 
@@ -54,9 +57,9 @@ func (r *Router) Setup(engine *gin.Engine) {
 		c.JSON(200, gin.H{"status": "ok"})
 	})
 
-	// V1 API - 任务提交接口 (RunPod 兼容)
+	// V1 API - 任务提交接口 (支持 API Key 或 JWT)
 	v1 := engine.Group("/v1")
-	v1.Use(middleware.JWTAuthWithUserService(r.userService))
+	v1.Use(middleware.APIKeyOrJWTAuth(r.userService))
 	{
 		v1.GET("/status/:task_id", r.taskHandler.GetTaskStatus)
 		v1.POST("/cancel/:task_id", r.taskHandler.CancelTask)
@@ -121,6 +124,14 @@ func (r *Router) Setup(engine *gin.Engine) {
 				billing.GET("/usage", r.billingHandler.GetUsage)
 				billing.GET("/workers", r.billingHandler.GetWorkerRecords)
 			}
+
+			// Registry 凭证管理
+			credentials := auth.Group("/registry-credentials")
+			{
+				credentials.POST("", r.registryCredentialHandler.Create)
+				credentials.GET("", r.registryCredentialHandler.List)
+				credentials.DELETE("/:name", r.registryCredentialHandler.Delete)
+			}
 		}
 
 		// Webhook 接口 (Waverless 调用)
@@ -130,8 +141,10 @@ func (r *Router) Setup(engine *gin.Engine) {
 			webhooks.POST("/worker-terminated", r.webhookHandler.WorkerTerminated)
 		}
 
-		// 管理员接口 (暂时不需要认证，方便开发)
+		// 管理员接口
 		admin := api.Group("/admin")
+		admin.Use(middleware.JWTAuthWithUserService(r.userService))
+		admin.Use(middleware.AdminAuth())
 		{
 			admin.GET("/clusters", r.clusterHandler.ListClusters)
 			admin.GET("/clusters/:id", r.clusterHandler.GetCluster)

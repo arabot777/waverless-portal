@@ -117,7 +117,7 @@ export default function Endpoints() {
                   <td>{ep.cluster_id}</td>
                   <td>{ep.current_replicas ?? 0}/{ep.replicas ?? 0}</td>
                   <td>${ep.price_per_hour?.toFixed(2)}</td>
-                  <td><span className={`tag ${ep.status}`}>{ep.status}</span></td>
+                  <td><span className={`tag ${(ep.status || '').toLowerCase()}`}>{ep.status}</span></td>
                   <td>
                     <div style={{ display: 'flex', gap: 8 }}>
                       <Popconfirm title="Stop this endpoint?" onConfirm={() => handleStop(ep.logical_name)}>

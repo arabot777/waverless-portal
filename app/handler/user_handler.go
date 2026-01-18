@@ -66,6 +66,7 @@ func (h *UserHandler) GetCurrentUser(c *gin.Context) {
 		"avatar_url":  user.AvatarURL,
 		"role":        role,
 		"user_type":   userType,
+		"is_admin":    userType == "admin",
 		"permissions": user.Permissions,
 		"balance":     ToUSD(balance),
 	})

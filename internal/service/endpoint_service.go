@@ -16,27 +16,29 @@ import (
 )
 
 type EndpointService struct {
-	repo             *mysql.EndpointRepo
-	clusterRepo      *mysql.ClusterRepo
-	specRepo         *mysql.SpecRepo
-	clusterService   *ClusterService
-	waverlessClients sync.Map
+	repo                   *mysql.EndpointRepo
+	clusterRepo            *mysql.ClusterRepo
+	specRepo               *mysql.SpecRepo
+	registryCredentialRepo *mysql.RegistryCredentialRepo
+	clusterService         *ClusterService
+	waverlessClients       sync.Map
 }
 
-func NewEndpointService(repo *mysql.EndpointRepo, clusterRepo *mysql.ClusterRepo, specRepo *mysql.SpecRepo, clusterService *ClusterService) *EndpointService {
-	return &EndpointService{repo: repo, clusterRepo: clusterRepo, specRepo: specRepo, clusterService: clusterService}
+func NewEndpointService(repo *mysql.EndpointRepo, clusterRepo *mysql.ClusterRepo, specRepo *mysql.SpecRepo, registryCredentialRepo *mysql.RegistryCredentialRepo, clusterService *ClusterService) *EndpointService {
+	return &EndpointService{repo: repo, clusterRepo: clusterRepo, specRepo: specRepo, registryCredentialRepo: registryCredentialRepo, clusterService: clusterService}
 }
 
 type CreateEndpointRequest struct {
-	LogicalName  string            `json:"logical_name"`
-	SpecName     string            `json:"spec_name"`
-	Image        string            `json:"image"`
-	Replicas     int               `json:"replicas"`
-	MinReplicas  int               `json:"min_replicas"`
-	MaxReplicas  int               `json:"max_replicas"`
-	TaskTimeout  int               `json:"task_timeout"`
-	Env          map[string]string `json:"env"`
-	PreferRegion string            `json:"prefer_region"`
+	LogicalName            string            `json:"logical_name"`
+	SpecName               string            `json:"spec_name"`
+	Image                  string            `json:"image"`
+	Replicas               int               `json:"replicas"`
+	MinReplicas            int               `json:"min_replicas"`
+	MaxReplicas            int               `json:"max_replicas"`
+	TaskTimeout            int               `json:"task_timeout"`
+	Env                    map[string]string `json:"env"`
+	PreferRegion           string            `json:"prefer_region"`
+	RegistryCredentialName string            `json:"registry_credential_name"`
 }
 
 type ClusterCandidate struct {
@@ -74,11 +76,33 @@ func (s *EndpointService) Create(ctx context.Context, userID, orgID string, req 
 	if replicas == 0 {
 		replicas = req.MinReplicas
 	}
-	if err := client.CreateEndpoint(ctx, &waverless.CreateEndpointRequest{
+
+	// Build waverless request
+	waverlessReq := &waverless.CreateEndpointRequest{
 		Endpoint: physicalName, SpecName: candidate.ClusterSpec.ClusterSpecName, Image: req.Image,
 		Replicas: replicas, MinReplicas: req.MinReplicas, MaxReplicas: req.MaxReplicas,
 		TaskTimeout: req.TaskTimeout, Env: req.Env,
-	}); err != nil {
+	}
+
+	// Add registry credential if specified
+	if req.RegistryCredentialName != "" && s.registryCredentialRepo != nil {
+		cred, err := s.registryCredentialRepo.GetByName(ctx, userID, req.RegistryCredentialName)
+		if err != nil {
+			return nil, fmt.Errorf("registry credential not found: %s", req.RegistryCredentialName)
+		}
+		password, err := cred.DecryptPassword()
+		if err != nil {
+			return nil, fmt.Errorf("failed to decrypt registry credential")
+		}
+		waverlessReq.RegistryCredential = &waverless.RegistryCredential{
+			Registry: cred.Registry,
+			Username: cred.Username,
+			Password: password,
+		}
+		endpoint.RegistryCredentialID = &cred.ID
+	}
+
+	if err := client.CreateEndpoint(ctx, waverlessReq); err != nil {
 		logger.ErrorCtx(ctx, "failed to create endpoint in waverless", zap.Error(err))
 		return nil, fmt.Errorf("failed to create endpoint in waverless: %w", err)
 	}

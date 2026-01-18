@@ -79,9 +79,10 @@ type BillingConfig struct {
 
 // MainSiteConfig 主站配置
 type MainSiteConfig struct {
-	URL                string `mapstructure:"url"`                  // 主站地址
-	APIURL             string `mapstructure:"api_url"`              // API 地址
-	InternalServiceKey string `mapstructure:"internal_service_key"` // 内部服务认证密钥
+	URL                string   `mapstructure:"url"`                  // 主站地址
+	APIURL             string   `mapstructure:"api_url"`              // API 地址
+	InternalServiceKey string   `mapstructure:"internal_service_key"` // 内部服务认证密钥
+	AdminEmails        []string `mapstructure:"admin_emails"`         // 管理员邮箱列表
 }
 
 // RocketMQConfig RocketMQ 配置
@@ -151,16 +152,14 @@ func GetCookieName() string {
 
 // IsAdminEmail 检查是否为管理员邮箱
 func IsAdminEmail(email string) bool {
-	// TODO: 从配置或数据库读取管理员邮箱列表
-	adminEmails := []string{
-		"admin@wavespeed.ai",
-		"shanliu@wavespeed.ai",
-	}
-
-	for _, adminEmail := range adminEmails {
-		if email == adminEmail {
-			return true
+	if GlobalConfig != nil && len(GlobalConfig.MainSite.AdminEmails) > 0 {
+		for _, adminEmail := range GlobalConfig.MainSite.AdminEmails {
+			if email == adminEmail {
+				return true
+			}
 		}
+		return false
 	}
-	return false
+	// 默认管理员
+	return email == "admin@wavespeed.ai"
 }

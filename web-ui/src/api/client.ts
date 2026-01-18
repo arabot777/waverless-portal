@@ -47,6 +47,7 @@ export const createEndpoint = (data: {
   task_timeout?: number
   prefer_region?: string
   env?: Record<string, string>
+  registry_credential_name?: string
 }) => api.post('/api/v1/endpoints', data).then(r => r.data)
 
 export const updateEndpoint = (name: string, data: { replicas?: number; image?: string; env?: Record<string, string> }) =>
@@ -109,6 +110,16 @@ export const getAllTasks = (params?: { limit?: number; offset?: number; status?:
 // Scaling History
 export const getScalingHistory = (endpoint: string, limit?: number) =>
   api.get(`/api/v1/endpoints/${endpoint}/scaling-history`, { params: { limit } }).then(r => r.data)
+
+// Registry Credentials
+export const getRegistryCredentials = () =>
+  api.get('/api/v1/registry-credentials').then(r => r.data)
+
+export const createRegistryCredential = (data: { name: string; registry?: string; username: string; password: string }) =>
+  api.post('/api/v1/registry-credentials', data).then(r => r.data)
+
+export const deleteRegistryCredential = (name: string) =>
+  api.delete(`/api/v1/registry-credentials/${name}`).then(r => r.data)
 
 // Clusters (Admin)
 export const getClusters = () => api.get('/api/v1/admin/clusters').then(r => r.data)
