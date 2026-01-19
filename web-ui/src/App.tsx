@@ -13,6 +13,7 @@ import SpecsAdmin from './pages/SpecsAdmin'
 import Settings from './pages/Settings'
 import Login from './pages/Login'
 import { useUserStore } from './store/userStore'
+import { ThemeProvider } from './hooks/useTheme'
 import './index.css'
 
 const pageTitles: Record<string, string> = {
@@ -55,7 +56,7 @@ function AppLayout() {
   return (
     <div className="app">
       <Sidebar collapsed={collapsed} onCollapse={setCollapsed} />
-      <div className="main-content" style={{ marginLeft: collapsed ? 60 : 200 }}>
+      <div className="main-content" style={{ marginLeft: collapsed ? 64 : 200 }}>
         <Header title={getPageTitle()} />
         <div className="content">
           <Routes>
@@ -84,15 +85,17 @@ function App() {
   }, [])
 
   return (
-    <Routes>
-      <Route path="/login" element={<Login />} />
-      <Route path="/*" element={
-        <ProtectedRoute>
-          <AppLayout />
-        </ProtectedRoute>
-      } />
-      <Route path="/" element={<Navigate to="/endpoints" replace />} />
-    </Routes>
+    <ThemeProvider>
+      <Routes>
+        <Route path="/login" element={<Login />} />
+        <Route path="/*" element={
+          <ProtectedRoute>
+            <AppLayout />
+          </ProtectedRoute>
+        } />
+        <Route path="/" element={<Navigate to="/endpoints" replace />} />
+      </Routes>
+    </ThemeProvider>
   )
 }
 

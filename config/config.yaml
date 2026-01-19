@@ -38,8 +38,8 @@ billing:
   interval_seconds: 60  # 计费间隔(秒), 每分钟计费一次
 
 main_site:
-  url: https://wavespeed.ai
-  api_url: https://api.wavespeed.ai
+  url: https://tropical.wavespeed.ai
+  api_url: https://api-test.wavespeed.ai
   internal_service_key: PSQHce4rliuiKHUX3NKwfQvrLPjwNmxUayayvUyRXGk=
   admin_emails:
     - "arabot777@163.com"

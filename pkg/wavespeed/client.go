@@ -106,7 +106,7 @@ type APIKeyResponse struct {
 }
 
 // ValidateAPIKey 验证 API Key 并返回用户信息
-func ValidateAPIKey(ctx context.Context, apiKey string) (*APIKeyInfo, error) {
+func ValidateAPIKey(ctx context.Context, authHeader string) (*APIKeyInfo, error) {
 	apiURL := config.GlobalConfig.MainSite.APIURL
 	if apiURL == "" {
 		apiURL = config.GlobalConfig.MainSite.URL
@@ -116,7 +116,7 @@ func ValidateAPIKey(ctx context.Context, apiKey string) (*APIKeyInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("Authorization", "Bearer "+apiKey)
+	req.Header.Set("Authorization", authHeader)
 	req.Header.Set("Accept", "application/json")
 
 	// 添加内部服务签名

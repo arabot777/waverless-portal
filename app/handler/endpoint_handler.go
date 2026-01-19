@@ -110,6 +110,7 @@ func (h *EndpointHandler) GetEndpoint(c *gin.Context) {
 	detail["logical_name"] = endpoint.LogicalName
 	detail["price_per_hour"] = ToUSD(endpoint.PricePerHour)
 	detail["cluster_id"] = endpoint.ClusterID
+	detail["specName"] = endpoint.SpecName
 
 	c.JSON(http.StatusOK, detail)
 }

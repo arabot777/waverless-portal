@@ -19,13 +19,13 @@ interface SidebarProps {
 }
 
 const menuItems = [
-  { path: '/serverless', icon: <RocketOutlined />, label: 'Serverless', adminOnly: false },
-  { path: '/endpoints', icon: <CloudServerOutlined />, label: 'Endpoints', adminOnly: false },
-  { path: '/tasks', icon: <UnorderedListOutlined />, label: 'Tasks', adminOnly: false },
-  { path: '/billing', icon: <WalletOutlined />, label: 'Billing', adminOnly: false },
-  { path: '/settings', icon: <SettingOutlined />, label: 'Settings', adminOnly: false },
-  { path: '/clusters', icon: <ClusterOutlined />, label: 'Clusters', adminOnly: true },
-  { path: '/specs', icon: <AppstoreOutlined />, label: 'Specs', adminOnly: true },
+  { path: '/serverless', icon: RocketOutlined, label: 'Serverless', adminOnly: false },
+  { path: '/endpoints', icon: CloudServerOutlined, label: 'Endpoints', adminOnly: false },
+  { path: '/tasks', icon: UnorderedListOutlined, label: 'Tasks', adminOnly: false },
+  { path: '/billing', icon: WalletOutlined, label: 'Billing', adminOnly: false },
+  { path: '/settings', icon: SettingOutlined, label: 'Settings', adminOnly: false },
+  { path: '/clusters', icon: ClusterOutlined, label: 'Clusters', adminOnly: true },
+  { path: '/specs', icon: AppstoreOutlined, label: 'Specs', adminOnly: true },
 ]
 
 export default function Sidebar({ collapsed, onCollapse }: SidebarProps) {
@@ -50,7 +50,7 @@ export default function Sidebar({ collapsed, onCollapse }: SidebarProps) {
               `nav-item ${isActive || location.pathname.startsWith(item.path) ? 'active' : ''}`
             }
           >
-            {item.icon}
+            <item.icon style={{ fontSize: 18, color: 'inherit' }} />
             {!collapsed && <span>{item.label}</span>}
           </NavLink>
         ))}

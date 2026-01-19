@@ -1,27 +1,12 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { message, Popconfirm, Modal, Form, Input, InputNumber, Select, Collapse, Drawer, Tabs, Tooltip, Timeline } from 'antd'
-import { ArrowLeftOutlined, DeleteOutlined, ReloadOutlined, EditOutlined, PlayCircleOutlined, CopyOutlined, PlusOutlined, SyncOutlined, SearchOutlined, EyeOutlined, StopOutlined, QuestionCircleOutlined } from '@ant-design/icons'
+import { ArrowLeftOutlined, DeleteOutlined, ReloadOutlined, EditOutlined, PlayCircleOutlined, CopyOutlined, PlusOutlined, SyncOutlined, SearchOutlined, EyeOutlined, StopOutlined } from '@ant-design/icons'
 import * as echarts from 'echarts'
 import { getEndpoint, getEndpointWorkers, getWorkerLogs, getEndpointMetrics, getEndpointStats, updateEndpoint, updateEndpointConfig, deleteEndpoint, submitTask, getTaskStatus, getEndpointTasks, cancelTask, getTaskTimeline, getTaskExecutionHistory, getEndpointStatistics } from '../api/client'
 import Terminal from '../components/Terminal'
 
 type TabKey = 'overview' | 'metrics' | 'workers' | 'tasks' | 'settings'
-
-const FIELD_TIPS: Record<string, string> = {
-  priority: 'Higher numbers get resources first. Default 50.',
-  scaleUpThreshold: 'Pending tasks required before adding replicas (>=1).',
-  scaleDownIdleTime: 'Idle seconds before replicas are removed.',
-  scaleUpCooldown: 'Minimum seconds between two scale-up actions.',
-  scaleDownCooldown: 'Minimum seconds between two scale-down actions.',
-  highLoadThreshold: 'Queue length treated as "high load" for dynamic priority.',
-  priorityBoost: 'Priority points to add when high load is detected.',
-  imagePrefix: 'Registry prefix prepended to image name.',
-}
-
-const TipIcon = ({ tip }: { tip: string }) => (
-  <Tooltip title={tip}><QuestionCircleOutlined style={{ marginLeft: 4, color: '#999', fontSize: 12 }} /></Tooltip>
-)
 
 interface EndpointData {
   logical_name?: string
@@ -112,6 +97,7 @@ export default function EndpointDetail() {
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<TabKey>('overview')
   const [editModalOpen, setEditModalOpen] = useState(false)
+  const [editLoading, setEditLoading] = useState(false)
   const [form] = Form.useForm()
 
   const fetchData = async () => {
@@ -148,6 +134,7 @@ export default function EndpointDetail() {
 
   const handleUpdate = async () => {
     try {
+      setEditLoading(true)
       const values = await form.validateFields()
       await updateEndpoint(name!, values)
       message.success('Updated')
@@ -155,6 +142,8 @@ export default function EndpointDetail() {
       fetchData()
     } catch {
       message.error('Failed to update')
+    } finally {
+      setEditLoading(false)
     }
   }
 
@@ -212,14 +201,14 @@ export default function EndpointDetail() {
       </div>
 
       {/* Tab Content */}
-      {activeTab === 'overview' && <OverviewTab endpoint={ep} taskStats={taskStats} />}
+      {activeTab === 'overview' && <OverviewTab endpoint={ep} />}
       {activeTab === 'metrics' && <MetricsTab name={name!} />}
       {activeTab === 'workers' && <WorkersTab workers={workers} endpointName={name!} />}
       {activeTab === 'tasks' && <TasksTab endpointName={name!} />}
       {activeTab === 'settings' && <SettingsTab endpoint={ep} onRefresh={fetchData} />}
 
       {/* Edit Modal */}
-      <Modal title="Quick Edit" open={editModalOpen} onOk={handleUpdate} onCancel={() => setEditModalOpen(false)}>
+      <Modal title="Quick Edit" open={editModalOpen} onOk={handleUpdate} onCancel={() => setEditModalOpen(false)} confirmLoading={editLoading}>
         <Form form={form} layout="vertical" style={{ marginTop: 16 }}>
           <Form.Item name="replicas" label="Replicas"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item>
           <Form.Item name="image" label="Docker Image"><Input /></Form.Item>
@@ -229,7 +218,7 @@ export default function EndpointDetail() {
   )
 }
 
-function OverviewTab({ endpoint, taskStats }: { endpoint: EndpointData; taskStats: TaskStats | null }) {
+function OverviewTab({ endpoint }: { endpoint: EndpointData }) {
   const [apiMethod, setApiMethod] = useState<'run' | 'runsync' | 'status'>('run')
   const [codeLang, setCodeLang] = useState<'curl' | 'python' | 'js'>('curl')
   const [inputJson, setInputJson] = useState('{"prompt": "a beautiful sunset"}')
@@ -310,7 +299,7 @@ function OverviewTab({ endpoint, taskStats }: { endpoint: EndpointData; taskStat
               <button className="btn btn-blue" onClick={handleSubmit} disabled={loading}>
                 <PlayCircleOutlined /> {loading ? 'Loading...' : apiMethod === 'status' ? 'Query' : 'Submit'}
               </button>
-              {result && <pre style={{ marginTop: 12, background: '#1f2937', color: '#e5e7eb', padding: 10, borderRadius: 6, fontSize: 11, maxHeight: 120, overflow: 'auto' }}>{result}</pre>}
+              {result && <pre style={{ marginTop: 12, background: 'var(--bg-hover)', color: 'var(--text-primary)', padding: 10, borderRadius: 6, fontSize: 11, maxHeight: 120, overflow: 'auto' }}>{result}</pre>}
             </div>
             <div style={{ minWidth: 0 }}>
               <div className="flex gap-2 mb-2">
@@ -319,7 +308,7 @@ function OverviewTab({ endpoint, taskStats }: { endpoint: EndpointData; taskStat
                 ))}
                 <button className="btn btn-outline btn-sm" style={{ marginLeft: 'auto', fontSize: 11 }} onClick={copyCode}><CopyOutlined /> Copy</button>
               </div>
-              <pre style={{ background: '#1f2937', color: '#e5e7eb', padding: 12, borderRadius: 6, fontSize: 11, overflow: 'auto', height: 180, whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>{getCodeExample()}</pre>
+              <pre style={{ background: 'var(--bg-hover)', color: 'var(--text-primary)', padding: 12, borderRadius: 6, fontSize: 11, overflow: 'auto', height: 180, whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>{getCodeExample()}</pre>
             </div>
           </div>
         ),
@@ -329,32 +318,8 @@ function OverviewTab({ endpoint, taskStats }: { endpoint: EndpointData; taskStat
       <div className="card mb-4">
         <div className="card-header"><h3>Basic Information</h3></div>
         <table className="info-table"><tbody>
-          <tr><td className="info-label">Endpoint Name</td><td colSpan={3}>{endpoint.logical_name || endpoint.name}</td></tr>
-          {endpoint.displayName && <tr><td className="info-label">Display Name</td><td colSpan={3}>{endpoint.displayName}</td></tr>}
-          {endpoint.description && <tr><td className="info-label">Description</td><td colSpan={3}>{endpoint.description}</td></tr>}
-          <tr><td className="info-label">Namespace</td><td>{endpoint.namespace || 'default'}</td><td className="info-label">Type</td><td>{endpoint.type || '-'}</td></tr>
-          <tr><td className="info-label">Spec</td><td>{endpoint.specName || 'N/A'}</td><td className="info-label">Task Timeout</td><td>{endpoint.taskTimeout || 3600}s</td></tr>
-          <tr><td className="info-label">Max Pending Tasks</td><td>{endpoint.maxPendingTasks || 100}</td><td className="info-label">Created At</td><td>{endpoint.createdAt ? new Date(endpoint.createdAt).toLocaleString() : '-'}</td></tr>
-        </tbody></table>
-      </div>
-
-      {/* Image Info */}
-      <div className="card mb-4">
-        <div className="card-header"><h3>Image Information</h3></div>
-        <table className="info-table"><tbody>
-          {endpoint.imagePrefix && <tr><td className="info-label">Image Prefix<TipIcon tip={FIELD_TIPS.imagePrefix} /></td><td colSpan={3}><code style={{ background: 'var(--bg-hover)', padding: '4px 8px', borderRadius: 4, fontSize: 11 }}>{endpoint.imagePrefix}</code></td></tr>}
-          <tr><td className="info-label">Image</td><td colSpan={3}><code style={{ background: 'var(--bg-hover)', padding: '4px 8px', borderRadius: 4, fontSize: 11 }}>{endpoint.image}</code></td></tr>
-          <tr><td className="info-label">Update Status</td><td colSpan={3}><span className={`tag ${endpoint.imageUpdateAvailable ? 'pending' : 'success'}`}>{endpoint.imageUpdateAvailable ? '⚠️ Update Available' : '✓ Image is up to date'}</span></td></tr>
-          {endpoint.imageDigest && <tr><td className="info-label">Image Digest</td><td><code style={{ fontSize: 11 }}>{endpoint.imageDigest}</code></td><td className="info-label">Last Checked</td><td>{endpoint.imageLastChecked ? new Date(endpoint.imageLastChecked).toLocaleString() : '-'}</td></tr>}
-        </tbody></table>
-      </div>
-
-      {/* Resource Config */}
-      <div className="card mb-4">
-        <div className="card-header"><h3>Resource Configuration</h3></div>
-        <table className="info-table"><tbody>
-          <tr><td className="info-label">Replicas</td><td>{endpoint.readyReplicas || 0} / {endpoint.replicas || 0}</td><td className="info-label">Available</td><td>{endpoint.availableReplicas || 0}</td></tr>
-          {endpoint.shmSize && <tr><td className="info-label">Shared Memory</td><td>{endpoint.shmSize}</td><td className="info-label">Ptrace</td><td>{endpoint.enablePtrace ? 'Enabled' : 'Disabled'}</td></tr>}
+          <tr><td className="info-label">Endpoint Name</td><td>{endpoint.logical_name || endpoint.name}</td><td className="info-label">Spec</td><td>{endpoint.specName || 'N/A'}</td></tr>
+          <tr><td className="info-label">Created At</td><td>{endpoint.createdAt ? new Date(endpoint.createdAt).toLocaleString() : '-'}</td><td className="info-label">Image</td><td><code style={{ background: 'var(--bg-hover)', padding: '2px 6px', borderRadius: 4, fontSize: 11 }}>{endpoint.image}</code></td></tr>
         </tbody></table>
       </div>
 
@@ -362,36 +327,9 @@ function OverviewTab({ endpoint, taskStats }: { endpoint: EndpointData; taskStat
       <div className="card mb-4">
         <div className="card-header"><h3>AutoScaler Configuration</h3></div>
         <table className="info-table"><tbody>
-          <tr><td className="info-label">AutoScaler</td><td colSpan={3}><span className={`tag ${endpoint.autoscalerEnabled === 'enabled' ? 'running' : endpoint.autoscalerEnabled === 'disabled' ? 'failed' : 'pending'}`}>{endpoint.autoscalerEnabled === 'enabled' ? 'Force On' : endpoint.autoscalerEnabled === 'disabled' ? 'Force Off' : 'Default'}</span></td></tr>
-          <tr><td className="info-label">Priority<TipIcon tip={FIELD_TIPS.priority} /></td><td>{endpoint.priority || 50}</td><td className="info-label">Min Replicas</td><td>{endpoint.minReplicas || 0}{endpoint.minReplicas === 0 && <span style={{ color: 'var(--text-secondary)', fontSize: 11, marginLeft: 4 }}>(scale-to-zero)</span>}</td></tr>
-          <tr><td className="info-label">Max Replicas</td><td>{endpoint.maxReplicas || 10}</td><td className="info-label">Scale Up Threshold<TipIcon tip={FIELD_TIPS.scaleUpThreshold} /></td><td>{endpoint.scaleUpThreshold || 1}</td></tr>
-          <tr><td className="info-label">Scale Down Idle<TipIcon tip={FIELD_TIPS.scaleDownIdleTime} /></td><td>{endpoint.scaleDownIdleTime || 300}s</td><td className="info-label">Scale Up Cooldown<TipIcon tip={FIELD_TIPS.scaleUpCooldown} /></td><td>{endpoint.scaleUpCooldown || 60}s</td></tr>
-          <tr><td className="info-label">Scale Down Cooldown<TipIcon tip={FIELD_TIPS.scaleDownCooldown} /></td><td>{endpoint.scaleDownCooldown || 120}s</td><td className="info-label">Dynamic Priority</td><td>{endpoint.enableDynamicPrio ? 'Enabled' : 'Disabled'}</td></tr>
-          <tr><td className="info-label">High Load Threshold<TipIcon tip={FIELD_TIPS.highLoadThreshold} /></td><td>{endpoint.highLoadThreshold || 50}</td><td className="info-label">Priority Boost<TipIcon tip={FIELD_TIPS.priorityBoost} /></td><td>{endpoint.priorityBoost || 10}</td></tr>
+          <tr><td className="info-label">Min Replicas</td><td>{endpoint.minReplicas || 0}</td><td className="info-label">Max Replicas</td><td>{endpoint.maxReplicas || 10}</td></tr>
         </tbody></table>
       </div>
-
-      {/* Task Stats */}
-      <div className="card mb-4">
-        <div className="card-header"><h3>Task Statistics</h3></div>
-        <table className="info-table"><tbody>
-          <tr><td className="info-label">Total Tasks</td><td><strong>{(taskStats?.pendingTasks || 0) + (taskStats?.runningTasks || 0) + (taskStats?.completedTasks || 0) + (taskStats?.failedTasks || 0)}</strong></td><td className="info-label">Completed</td><td><span className="tag success">{taskStats?.completedTasks || 0}</span></td></tr>
-          <tr><td className="info-label">Failed</td><td><span className="tag failed">{taskStats?.failedTasks || 0}</span></td><td className="info-label">Pending</td><td><span className="tag pending">{taskStats?.pendingTasks || 0}</span></td></tr>
-          <tr><td className="info-label">Running</td><td><span className="tag running">{taskStats?.runningTasks || 0}</span></td><td className="info-label">Workers</td><td>{taskStats?.busyWorkers || 0} / {taskStats?.onlineWorkers || 0}</td></tr>
-        </tbody></table>
-      </div>
-
-      {/* Volume Mounts */}
-      {endpoint.volumeMounts && endpoint.volumeMounts.length > 0 && (
-        <div className="card mb-4">
-          <div className="card-header"><h3>Volume Mounts</h3></div>
-          <table className="info-table"><tbody>
-            {endpoint.volumeMounts.map((v, i) => (
-              <tr key={i}><td className="info-label">Mount {i + 1}</td><td colSpan={3}>PVC: <code>{v.pvcName}</code> → Path: <code>{v.mountPath}</code></td></tr>
-            ))}
-          </tbody></table>
-        </div>
-      )}
     </>
   )
 }
@@ -401,7 +339,7 @@ const ChartCard = React.memo(({ chartRef, title, total, legend, hasData }: { cha
     <div className="chart-header"><span className="chart-title">{title}</span>{total && <span className="chart-total">{total}</span>}</div>
     {legend && <div className="chart-legend">{legend.map((l, i) => <span key={i} className="legend-item"><span className="legend-dot" style={{ background: l.color }}></span>{l.label}</span>)}</div>}
     <div className="chart-container" ref={chartRef} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      {!hasData && <span style={{ color: '#9ca3af', fontSize: 13 }}>No data for selected time range</span>}
+      {!hasData && <span style={{ color: 'var(--text-secondary)', fontSize: 13 }}>No data for selected time range</span>}
     </div>
   </div>
 ))
@@ -461,8 +399,8 @@ function MetricsTab({ name }: { name: string }) {
   }, [name, timeRange, liveMode])
 
   const grid = useMemo(() => ({ left: 50, right: 20, top: 20, bottom: 50 }), [])
-  const axisLabel = useMemo(() => ({ fontSize: 11, color: 'var(--text-secondary)' }), [])
-  const dataZoom = useMemo(() => [{ type: 'inside', start: 0, end: 100 }, { type: 'slider', start: 0, end: 100, height: 20, bottom: 5 }], [])
+  const axisLabel = useMemo(() => ({ fontSize: 11, color: '#9ca3af' }), [])
+  const dataZoom = useMemo(() => [{ type: 'inside', start: 0, end: 100 }, { type: 'slider', start: 0, end: 100, height: 20, bottom: 5, textStyle: { color: '#9ca3af' } }], [])
 
   const { totals, avgValues } = useMemo(() => {
     const data = Array.isArray(statsData) ? statsData : []
